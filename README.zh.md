@@ -100,6 +100,22 @@ npm run verify      # 类型检查 + 构建 + client bundle 契约检查
 
 错误码：`bad-request`、`workspace-unknown`、`not-a-repository`、`git-failed`、`nothing-to-commit`、`model-unavailable`、`model-failed`、`push-failed`、`internal`。
 
+## 主题与样式
+
+面板**不自带任何设计**。所有颜色、圆角、阴影和字体都来自主题自己的 token 表（`dsh-client-ui-theme`），并按官方组件的组合方式拼装——所以在完全没做自定义样式的部署上，面板看起来就是这套 UI 的一部分，浅色、深色、跟随系统都成立：
+
+| 元素 | 使用的 token |
+|---|---|
+| 卡片表面 | `bg-layer-2` + `elevation-prominent` + `radius-panel`（与官方设置面板同一组合） |
+| 悬浮胶囊 | `button-floating-fill` + `border-l2` + `elevation-panel`（与官方浮动按钮一致） |
+| 主操作 | `button-primary-fill` / `-hover` + `label-primary-foreground`（与官方主按钮一致） |
+| 次操作 | 透明 + `border-l4`，hover 用 `interactive-bg-hover`（与官方 chip 一致） |
+| 输入框 | `bg-layer-1` + `border-l4` + `radius-lg` |
+| 次要文字 | `label-caption` + `font-xxs-12`；正文 `font-xs-13` |
+| 错误文字 | `state-error-primary`（官方 103 处错误提示用的同一个 token） |
+
+没有硬编码颜色、没有 `prefers-color-scheme` 分支、没有主题监听：token 在绘制时自然解析。`npm run verify:theme` 就是验证这一点——分别在两种模式下渲染胶囊与卡片，断言每个面色确实解析成了主题值（且深色下解析成**不同**的值），这正是能抓出"token 名写错导致静默回退"的那种检查。
+
 ## 安全边界
 
 浏览器不能随意指定运行 git 的目录。请求路径先经 `fs.realpath` 解析，然后必须**等于某个已注册工作区的路径**；子目录、符号链接逃逸、以及注册表之外的任何目录都会以 `workspace-unknown` 拒绝。此外路由仅限回环访问（socket 地址、`Host` 头、同源浏览器标记），并要求 JSON content-type，跨站表单无法驱动提交。接口不接受用户传入的 remote、ref 或 git 参数，服务只在通过闸门的仓库上执行固定的 git 动词。
@@ -128,6 +144,7 @@ src/
 ```sh
 node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
 node scripts/verify-generate.mjs 'http://127.0.0.1:3199/?token=<token>'
+node scripts/verify-theme.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
 node scripts/verify-failure.mjs        # 自己起一个凭据故意无效的实例
 ```
 

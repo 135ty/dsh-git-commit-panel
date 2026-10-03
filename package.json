@@ -58,6 +58,7 @@
     "verify:panel": "node scripts/verify-panel.mjs",
     "verify:generate": "node scripts/verify-generate.mjs",
     "verify:failure": "node scripts/verify-failure.mjs",
+    "verify:theme": "node scripts/verify-theme.mjs",
     "prepare": "node scripts/build.mjs && node scripts/build-host.mjs"
   },
   "peerDependencies": {

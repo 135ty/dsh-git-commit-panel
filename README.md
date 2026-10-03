@@ -102,6 +102,30 @@ Every route is `POST`, JSON in, `{ ok: true, value }` or `{ ok: false, error: { 
 
 Error codes: `bad-request`, `workspace-unknown`, `not-a-repository`, `git-failed`, `nothing-to-commit`, `model-unavailable`, `model-failed`, `push-failed`, `internal`.
 
+## Theming
+
+The panel carries **no design of its own**. Every colour, radius, shadow, and
+font comes from the theme's own token table (`dsh-client-ui-theme`), composed
+the way the shipped surfaces compose it — so a stock deployment with no
+custom styling gets a panel that belongs to it, in light, dark, and system
+mode alike:
+
+| Element | Tokens |
+|---|---|
+| Card surface | `bg-layer-2` + `elevation-prominent` + `radius-panel` (the settings panel's composition) |
+| Floating pill | `button-floating-fill` + `border-l2` + `elevation-panel` (the shipped floating buttons) |
+| Primary action | `button-primary-fill` / `-hover` + `label-primary-foreground` (the shipped primary button) |
+| Secondary action | transparent + `border-l4` + `interactive-bg-hover` on hover (the shipped chip) |
+| Inputs | `bg-layer-1` + `border-l4` + `radius-lg` |
+| Secondary copy | `label-caption` + `font-xxs-12`; body copy `font-xs-13` |
+| Error text | `state-error-primary` (the token all 103 shipped error messages use) |
+
+There are no literal colours, no `prefers-color-scheme` branch, and no theme
+observer: the tokens resolve at paint time. `npm run verify:theme` asserts
+exactly that — it renders the pill and card in both modes and checks that each
+surface resolves to a themed value (and to a *different* one in dark mode),
+which is what catches a token typo that would otherwise fall back silently.
+
 ## Security boundary
 
 The browser never names a directory it is allowed to run git in freely. A request path is resolved with `fs.realpath` and then required to **equal a registered workspace path**; a subdirectory, a symlink escape, or any directory outside the registry is refused with `workspace-unknown`. On top of that the routes are loopback-only (socket address, `Host` header, and same-origin browser markers) and require a JSON content-type, so a cross-site form cannot drive a commit. There is no user-supplied remote, ref, or git option: the service only runs fixed verbs against the gated repository.
@@ -130,6 +154,7 @@ src/
 ```sh
 node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
 node scripts/verify-generate.mjs 'http://127.0.0.1:3199/?token=<token>'
+node scripts/verify-theme.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
 node scripts/verify-failure.mjs        # boots its own instance with a deliberately invalid key
 ```
 

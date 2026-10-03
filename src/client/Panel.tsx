@@ -56,7 +56,15 @@ const KIND_MARK: Record<FileChange['kind'], string> = {
   untracked: '?',
 };
 
-/** Theme-native surface styles; every colour is a semantic DSH token. */
+/**
+ * Surface styles. Every value comes from the theme's own token table
+ * (`dsh-client-ui-theme`) and follows the composition its shipped surfaces
+ * use: layer-2 panel + `elevation-prominent` (settings panel), floating
+ * button fill for the pill, `.5px` borders at `border-l2`/`border-l4`,
+ * `radius-panel`/`radius-lg`/`radius-sm`, and the `font-xs-13` typography.
+ * No literal colour appears here, so the panel follows light/dark/system
+ * without its own theme handling.
+ */
 const panelRootStyle: CSSProperties = {
   position: 'absolute',
   right: 20,
@@ -69,57 +77,74 @@ const panelStyle: CSSProperties = {
   flexDirection: 'column',
   gap: 10,
   width: 'min(420px, calc(100vw - 40px))',
-  padding: 14,
-  borderRadius: 14,
-  background: 'var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base, Canvas))',
-  color: 'var(--dsw-alias-label-primary, CanvasText)',
-  border: '1px solid var(--dsw-alias-border-secondary, rgba(127,127,127,0.35))',
-  boxShadow: '0 12px 32px rgba(0,0,0,0.28)',
-  font: '13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif',
+  padding: 16,
+  borderRadius: 'var(--dsw-radius-panel)',
+  background: 'var(--dsw-alias-bg-layer-2)',
+  color: 'var(--dsw-alias-label-primary)',
+  boxShadow: 'var(--dsw-elevation-prominent)',
+  fontFamily: 'var(--dsw-font-family)',
+  fontSize: 'var(--dsw-font-xs-13-font-size)',
+  lineHeight: 'var(--dsw-font-xs-13-line-height)',
 };
 
 const badgeStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 8,
-  padding: '8px 14px',
-  borderRadius: 999,
+  height: 32,
+  padding: '0 14px',
+  borderRadius: 'var(--dsw-radius-panel)',
   cursor: 'pointer',
-  background: 'var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base, Canvas))',
-  color: 'var(--dsw-alias-label-primary, CanvasText)',
-  border: '1px solid var(--dsw-alias-border-secondary, rgba(127,127,127,0.35))',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.24)',
-  font: '13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif',
+  background: 'var(--dsw-alias-button-floating-fill)',
+  color: 'var(--dsw-alias-label-primary)',
+  border: '.5px solid var(--dsw-alias-border-l2)',
+  boxShadow: 'var(--dsw-elevation-panel)',
+  fontFamily: 'var(--dsw-font-family)',
+  fontSize: 'var(--dsw-font-xs-13-font-size)',
+  lineHeight: 'var(--dsw-font-xs-13-line-height)',
 };
 
+const buttonBase: CSSProperties = {
+  boxSizing: 'border-box',
+  height: 28,
+  padding: '0 12px',
+  borderRadius: 'var(--dsw-radius-sm)',
+  cursor: 'pointer',
+  fontFamily: 'var(--dsw-font-family)',
+  fontSize: 'var(--dsw-font-xs-13-font-size)',
+  lineHeight: 'var(--dsw-font-xs-13-line-height)',
+  fontWeight: 'var(--dsw-font-xs-13-font-weight)' as CSSProperties['fontWeight'],
+};
+
+/** Secondary action: the ghost/bordered chip the shipped surfaces use. */
 const terseButton: CSSProperties = {
-  padding: '5px 10px',
-  borderRadius: 8,
-  cursor: 'pointer',
+  ...buttonBase,
   background: 'transparent',
-  color: 'var(--dsw-alias-label-primary, CanvasText)',
-  border: '1px solid var(--dsw-alias-border-secondary, rgba(127,127,127,0.35))',
-  font: 'inherit',
+  color: 'var(--dsw-alias-label-primary)',
+  border: '.5px solid var(--dsw-alias-border-l4)',
 };
 
+/** Primary action: the filled brand button (`button-primary-fill` + inverted label). */
 const primaryButton: CSSProperties = {
-  ...terseButton,
-  background: 'var(--dsw-alias-brand-primary, #4d6bfe)',
-  color: '#fff',
-  border: '1px solid transparent',
-  fontWeight: 600,
+  ...buttonBase,
+  background: 'var(--dsw-alias-button-primary-fill)',
+  color: 'var(--dsw-alias-label-primary-foreground)',
+  border: '.5px solid transparent',
+  fontWeight: 500,
 };
 
 const inputStyle: CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
-  padding: '8px 10px',
-  borderRadius: 10,
+  padding: '6px 10px',
+  borderRadius: 'var(--dsw-radius-lg)',
   resize: 'vertical',
-  background: 'var(--dsw-alias-bg-base, Canvas)',
-  color: 'var(--dsw-alias-label-primary, CanvasText)',
-  border: '1px solid var(--dsw-alias-border-secondary, rgba(127,127,127,0.35))',
-  font: 'inherit',
+  background: 'var(--dsw-alias-bg-layer-1)',
+  color: 'var(--dsw-alias-label-primary)',
+  border: '.5px solid var(--dsw-alias-border-l4)',
+  fontFamily: 'var(--dsw-font-family)',
+  fontSize: 'var(--dsw-font-xs-13-font-size)',
+  lineHeight: 'var(--dsw-font-xs-13-line-height)',
 };
 
 const fileRowStyle: CSSProperties = {
@@ -131,13 +156,45 @@ const fileRowStyle: CSSProperties = {
   overflow: 'hidden',
 };
 
+/** Secondary copy: the 12px caption tone the frame uses for metadata. */
 const mutedStyle: CSSProperties = {
-  color: 'var(--dsw-alias-label-secondary, GrayText)',
-  fontSize: 12,
+  color: 'var(--dsw-alias-label-caption)',
+  fontSize: 'var(--dsw-font-xxs-12-font-size)',
+  lineHeight: 'var(--dsw-font-xxs-12-line-height)',
 };
 
-/** Deduplicate and order the candidate workspaces the panel may inspect. */
-function candidatesOf(
+/**
+ * A themed button. Hover is the one affordance inline styles cannot express
+ * through a token, so it swaps between the two interactive fills the shipped
+ * surfaces use instead of writing a literal colour.
+ */
+function HoverButton({
+  style,
+  hoverStyle,
+  ...rest
+}: {
+  style: CSSProperties;
+  hoverStyle: CSSProperties;
+} & React.ButtonHTMLAttributes<HTMLButtonElement>): ReactElement {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      {...rest}
+      style={hover && !rest.disabled ? { ...style, ...hoverStyle } : style}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    />
+  );
+}
+
+/** Fill swap for a secondary action on hover. */
+const ghostHover: CSSProperties = { background: 'var(--dsw-alias-interactive-bg-hover)' };
+
+/** Fill swap for the primary action on hover. */
+const primaryHover: CSSProperties = { background: 'var(--dsw-alias-button-primary-hover)' };
+
+/** Deduplicate and order the candidate workspaces the panel may inspect. */function candidatesOf(
   sessionCwds: readonly (string | undefined)[],
   workspacePaths: readonly string[],
 ): string[] {
@@ -383,9 +440,9 @@ export function Panel(props: PanelProps): ReactElement | null {
   if (!open) {
     return (
       <div style={panelRootStyle} data-dsh-git-commit-panel-root="pill">
-        <button
-          type="button"
+        <HoverButton
           style={badgeStyle}
+          hoverStyle={ghostHover}
           title={t('badgeTitle')}
           data-dsh-git-commit-panel="pill"
           onClick={() => setOpen(true)}
@@ -393,7 +450,7 @@ export function Panel(props: PanelProps): ReactElement | null {
           <span aria-hidden="true">⑂</span>
           <span>{branchLabel}</span>
           <span style={mutedStyle}>{t('badgeFiles', { count: status.summary.unstaged })}</span>
-        </button>
+        </HoverButton>
       </div>
     );
   }
@@ -419,10 +476,19 @@ export function Panel(props: PanelProps): ReactElement | null {
         {status.upstream !== null && (status.ahead > 0 || status.behind > 0) ? (
           <span style={mutedStyle}>{t('upstreamAheadBehind', { ahead: status.ahead, behind: status.behind })}</span>
         ) : null}
-        <button type="button" style={terseButton} onClick={onRefresh} title={t('refresh')}>↻</button>
-        <button
-          type="button"
+        <HoverButton
           style={terseButton}
+          hoverStyle={ghostHover}
+          data-dsh-git-commit-panel="refresh"
+          onClick={onRefresh}
+          title={t('refresh')}
+        >
+          ↻
+        </HoverButton>
+        <HoverButton
+          style={terseButton}
+          hoverStyle={ghostHover}
+          data-dsh-git-commit-panel="close"
           onClick={() => {
             setOpen(false);
             setError(null);
@@ -431,7 +497,7 @@ export function Panel(props: PanelProps): ReactElement | null {
           title={t('close')}
         >
           ✕
-        </button>
+        </HoverButton>
       </header>
 
       <div style={mutedStyle}>{t('fileCount', {
@@ -440,16 +506,16 @@ export function Panel(props: PanelProps): ReactElement | null {
         unstaged: status.summary.unstaged,
       })}</div>
 
-      <button
-        type="button"
+      <HoverButton
         style={{ ...terseButton, textAlign: 'left' }}
+        hoverStyle={ghostHover}
         onClick={() => setShowFiles((value) => !value)}
       >
         {showFiles ? t('hideFiles') : t('showFiles')}
-      </button>
+      </HoverButton>
 
       {showFiles ? (
-        <div style={{ maxHeight: 160, overflow: 'auto', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
+        <div style={{ maxHeight: 160, overflow: 'auto', fontFamily: 'var(--dsw-font-markdown-code-font-family)', fontSize: 'var(--dsw-font-markdown-code-font-size)' }}>
           {unstagedFiles.length === 0 ? <div style={mutedStyle}>{t('noUnstaged')}</div> : null}
           {unstagedFiles.map((file) => (
             <div key={`${file.path}:${file.from ?? ''}`} style={fileRowStyle} title={file.path}>
@@ -507,9 +573,10 @@ export function Panel(props: PanelProps): ReactElement | null {
       </label>
       {!stageAll && stagedCount === 0 ? <div style={mutedStyle}>{t('noStaged')}</div> : null}
 
+      {/* `state-error-primary` is the token every shipped error message uses. */}
       {error !== null ? (
         <div
-          style={{ color: 'var(--dsw-alias-label-error, #d9534f)', whiteSpace: 'pre-wrap' }}
+          style={{ color: 'var(--dsw-alias-state-error-primary)', whiteSpace: 'pre-wrap' }}
           data-dsh-git-commit-panel="error"
         >
           {/* The verb in the failure belongs to the code, not to the button
@@ -524,32 +591,32 @@ export function Panel(props: PanelProps): ReactElement | null {
       {notice !== '' ? <div style={mutedStyle}>{notice}</div> : null}
 
       <footer style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-        <button
-          type="button"
+        <HoverButton
           style={terseButton}
+          hoverStyle={ghostHover}
           disabled={generating || committing}
           onClick={() => { void onGenerate(); }}
         >
           {generating ? t('generating') : t('generate')}
-        </button>
-        <button
-          type="button"
+        </HoverButton>
+        <HoverButton
           style={terseButton}
+          hoverStyle={ghostHover}
           data-dsh-git-commit-panel="commit"
           disabled={!canCommit || committing}
           onClick={() => { void onCommit(false); }}
         >
           {committing ? t('committing') : t('commit')}
-        </button>
-        <button
-          type="button"
+        </HoverButton>
+        <HoverButton
           style={primaryButton}
+          hoverStyle={primaryHover}
           data-dsh-git-commit-panel="commit-push"
           disabled={!canCommit || committing}
           onClick={() => { void onCommit(true); }}
         >
           {t('commitAndPush')}
-        </button>
+        </HoverButton>
       </footer>
       </section>
     </div>
