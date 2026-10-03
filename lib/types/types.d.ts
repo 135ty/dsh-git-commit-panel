@@ -99,6 +99,13 @@ export interface GenerateMessageRequest {
     locale?: string | undefined;
     /** Extra user intent appended to the prompt (the panel's optional hint box). */
     hint?: string | undefined;
+    /**
+     * Preferred provider route for the drafting call. Only honoured when an
+     * adapter is registered for it; otherwise the deployment default is used.
+     */
+    provider?: string | undefined;
+    /** Preferred model id, paired with {@link provider}. */
+    model?: string | undefined;
 }
 /** Result of one AI commit-message generation. */
 export interface GenerateMessageResult {

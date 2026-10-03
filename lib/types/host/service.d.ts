@@ -69,6 +69,17 @@ export declare class GitCommitService {
      * @returns the human-readable push summary (git's own stderr/stdout tail).
      */
     push(root: string, signal?: AbortSignal): Promise<string>;
+    /**
+     * Resolve the provider/model the drafting call runs on.
+     *
+     * A caller-supplied pair is honoured only when an adapter is registered for
+     * that provider, so a browser cannot name an unroutable route. Everything
+     * else falls back to the deployment's default selection — the same one a
+     * freshly created agent starts on.
+     */
+    private resolveSelection;
+    /** Whether an LLM adapter is currently registered for one provider route. */
+    private hasAdapter;
     /** Canonicalize + authorize a workspace path. */
     private gated;
     /** Canonicalize + authorize a workspace path and resolve its repository top level. */

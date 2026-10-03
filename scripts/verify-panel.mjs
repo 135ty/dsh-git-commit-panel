@@ -46,6 +46,15 @@ function seedChange() {
   execFileSync('node', ['-e', `require('node:fs').appendFileSync(${JSON.stringify(target)}, 'change\\n')`]);
 }
 
+/** Subject of the repository's current HEAD. */
+function subjectOf() {
+  try {
+    return execFileSync('git', ['log', '-1', '--pretty=%s'], { cwd: workspace, encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
+
 const results = [];
 const check = (ok, label, extra = '') => {
   results.push({ ok, label, extra });
@@ -173,36 +182,76 @@ if (pillVisible) {
     const generateButtons = await dialog.locator('button').filter({ hasText: /Generate with AI|AI 生成/ }).count();
     check(generateButtons >= 1, 'AI generate button present');
 
-    // Drive the controlled textarea the way React's own onChange expects: the
-    // native value setter plus a bubbling input event. (Playwright's fill/type
-    // does not reach this component's React state in headless Chrome.)
-    const message = `fix: verify the floating commit panel ${Date.now()}`;
-    await dialog.locator('textarea').evaluate((element, value) => {
-      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-      setter?.call(element, value);
-      element.dispatchEvent(new Event('input', { bubbles: true }));
-    }, message);
-    await page.waitForTimeout(500);
-    const typed = await dialog.locator('textarea').inputValue();
-    check(typed === message, 'message box accepts typed text', typed.slice(0, 60));
-
+    const textarea = dialog.locator('textarea');
     const commitButton = dialog.locator('[data-dsh-git-commit-panel="commit"]');
     check(await commitButton.count() === 1, 'commit action present');
-    const enabled = await commitButton.isEnabled().catch(() => false);
-    check(enabled, 'commit action enables once a message exists');
-    await page.screenshot({ path: join(OUT, 'panel-open.png') });
-    await dialog.screenshot({ path: join(OUT, 'panel-card.png') }).catch(() => {});
 
-    // Drive the real commit through the panel and watch the pill retire.
-    if (enabled) {
-      await commitButton.evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-      await page.waitForTimeout(10_000);
-      const pillAfter = await page.locator('[data-dsh-git-commit-panel="pill"]').count();
-      const cardText = (await dialog.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
-      check(pillAfter === 0, 'pill disappears once the work tree is clean', cardText.slice(0, 200));
-      await writeFile(join(OUT, 'commit-message.txt'), message, 'utf8');
-      await page.screenshot({ path: join(OUT, 'panel-after-commit.png') });
+    /** Wait for the empty-box commit to draft a message and land a commit. */
+    const waitForCommit = async (predicate, timeoutMs) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        await page.waitForTimeout(1_000);
+        if (await predicate()) return true;
+      }
+      return false;
+    };
+
+    // 1. An empty box is still a valid commit: the AI drafts the message and
+    //    that drafted text is what gets committed.
+    check(await commitButton.isEnabled(), 'commit action is enabled with an empty message box');
+    const hintShown = (await dialog.innerText()).includes('AI drafts one')
+      || (await dialog.innerText()).includes('留空则由 AI 起草');
+    check(hintShown, 'card explains that an empty message is drafted by the AI');
+
+    const before = subjectOf();
+    await commitButton.evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const committed = await waitForCommit(() => subjectOf() !== before, 120_000);
+    const drafted = committed ? subjectOf() : '';
+    check(committed, 'empty-box commit reached the repository', drafted);
+    check(
+      /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w./@ -]+\))?!?: .+/.test(drafted),
+      'the AI-drafted commit subject is a Conventional Commit',
+      drafted,
+    );
+    await writeFile(join(OUT, 'commit-message.txt'), drafted, 'utf8');
+
+    const pillAfter = await page.locator('[data-dsh-git-commit-panel="pill"]').count();
+    check(pillAfter === 0, 'pill disappears once the work tree is clean');
+    await page.screenshot({ path: join(OUT, 'panel-after-commit.png') });
+
+    // 2. Explicit drafting still fills the box with reviewable text. The page
+    //    reloads first so the probe runs against the freshly seeded change
+    //    rather than waiting out a poll interval.
+    seedChange();
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('[data-shell-overlay]', { timeout: 45_000 });
+    const reappeared = await waitForPill(true, 40_000);
+    check(reappeared, 'pill returns for the next change set');
+    if (reappeared) {
+      await page.locator(pillSelector).first()
+        .evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+      await page.waitForTimeout(1_500);
+      const card = page.locator('[data-dsh-git-commit-panel="card"]').first();
+      const nextTextarea = card.locator('textarea');
+      await nextTextarea.evaluate((element) => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+        setter?.call(element, '   ');
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await page.waitForTimeout(400);
+      await card.locator('button').filter({ hasText: /Generate with AI|AI 生成/ }).first()
+        .evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+      const deadline = Date.now() + 120_000;
+      let draftedText = '';
+      while (Date.now() < deadline) {
+        await page.waitForTimeout(1_000);
+        draftedText = (await nextTextarea.inputValue()).trim();
+        if (draftedText !== '') break;
+      }
+      check(draftedText !== '', 'Generate with AI fills the message box', draftedText.slice(0, 80));
+      await card.screenshot({ path: join(OUT, 'panel-generated.png') }).catch(() => {});
     }
+    await page.screenshot({ path: join(OUT, 'panel-open.png') });
   }
 }
 

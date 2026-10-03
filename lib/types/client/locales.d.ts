@@ -33,13 +33,14 @@ export declare const en: {
     readonly noStaged: "Nothing is staged yet.";
     readonly repository: "Repository";
     readonly workspace: "Workspace";
-    readonly emptyMessage: "Write a commit message, or let the AI draft one.";
     readonly generateFailed: "Could not generate a commit message.";
     readonly commitFailed: "Commit failed.";
     readonly showFiles: "Show changed files";
     readonly hideFiles: "Hide changed files";
     readonly commits: "Commit";
     readonly andPush: "and push";
+    readonly emptyGenerates: "Leave the message empty and the AI drafts one, then commits.";
+    readonly generatedBy: "Drafted by {model}";
 };
 /** The Chinese dictionary; every English key must be present. */
 export declare const zh: Record<keyof typeof en, string>;

@@ -194,6 +194,8 @@ export function Panel(props: PanelProps): ReactElement | null {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [hint, setHint] = useState('');
+  /** Model that drafted the current message, empty when the user wrote it. */
+  const [draftedBy, setDraftedBy] = useState('');
   const [stageAll, setStageAll] = useState(true);
   const [showFiles, setShowFiles] = useState(false);
   const [busy, setBusy] = useState<'idle' | 'loading' | 'generating' | 'committing'>('idle');
@@ -288,42 +290,66 @@ export function Panel(props: PanelProps): ReactElement | null {
     void refresh(true);
   }, [refresh]);
 
-  /** Ask the host's default model to draft the message. */
-  const onGenerate = useCallback(async (): Promise<void> => {
-    if (status === null) return;
-    setBusy('generating');
+  /**
+   * Ask the host for a Conventional Commit message, preferring the selected
+   * model. Returns the message and the model that drafted it, or null after
+   * surfacing the failure.
+   */
+  const generateMessage = useCallback(async (): Promise<{ message: string; model: string } | null> => {
+    if (status === null) return null;
     setError(null);
     setNotice('');
+    const result = await git.generate(status.workspace, {
+      staged: !stageAll && stagedCount > 0,
+      locale: typeof navigator === 'undefined' ? 'en' : navigator.language,
+      ...(hint.trim() === '' ? {} : { hint: hint.trim() }),
+    });
+    if (!result.ok) {
+      setError(result.error);
+      return null;
+    }
+    setMessage(result.value.message);
+    setDraftedBy(result.value.model);
+    return { message: result.value.message, model: result.value.model };
+  }, [git, hint, stageAll, stagedCount, status]);
+
+  /** The Generate with AI button. */
+  const onGenerate = useCallback(async (): Promise<void> => {
+    setBusy('generating');
     try {
-      const result = await git.generate(status.workspace, {
-        staged: !stageAll && stagedCount > 0,
-        locale: typeof navigator === 'undefined' ? 'en' : navigator.language,
-        ...(hint.trim() === '' ? {} : { hint: hint.trim() }),
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setMessage(result.value.message);
+      await generateMessage();
     } finally {
       setBusy('idle');
     }
-  }, [git, hint, stageAll, stagedCount, status]);
+  }, [generateMessage]);
 
-  /** Commit (and optionally push) through the host. */
+  /**
+   * Commit (and optionally push) through the host. An empty message box is not
+   * an error: the AI drafts the message first, and that drafted text is what
+   * gets committed.
+   */
   const onCommit = useCallback(async (push: boolean): Promise<void> => {
     if (status === null) return;
-    if (message.trim() === '') {
-      setError({ code: 'bad-request', message: t('emptyMessage') });
-      return;
-    }
-    setBusy('committing');
     setError(null);
     setNotice('');
+
+    const typed = message.trim();
+    let outgoing = message;
+    if (typed === '') {
+      setBusy('generating');
+      const drafted = await generateMessage();
+      if (drafted === null) {
+        setBusy('idle');
+        return;
+      }
+      outgoing = drafted.message;
+    }
+
+    setBusy('committing');
     try {
       const result = await git.commit({
         path: status.workspace,
-        message,
+        message: outgoing,
         stageAll,
         push,
       });
@@ -332,13 +358,14 @@ export function Panel(props: PanelProps): ReactElement | null {
         return;
       }
       setMessage('');
+      setDraftedBy('');
       setNotice(describeCommit(result.value, t));
       setStatus(null);
       await refresh(true);
     } finally {
       setBusy('idle');
     }
-  }, [git, message, refresh, setStatus, stageAll, status, t]);
+  }, [generateMessage, git, message, refresh, setStatus, stageAll, status, t]);
 
   if (status === null) return null;
 
@@ -364,8 +391,10 @@ export function Panel(props: PanelProps): ReactElement | null {
 
   const committing = busy === 'committing';
   const generating = busy === 'generating';
-  const canCommit = message.trim() !== '' && !committing
-    && (stageAll ? status.files.length > 0 : stagedCount > 0);
+  // An empty message is a valid commit: the AI drafts the text first, so the
+  // only real precondition is having something to commit.
+  const hasSomethingToCommit = stageAll ? status.files.length > 0 : stagedCount > 0;
+  const canCommit = !busy.startsWith('gen') && !committing && hasSomethingToCommit;
 
   return (
     <div style={panelRootStyle} data-dsh-git-commit-panel-root="card">
@@ -439,6 +468,13 @@ export function Panel(props: PanelProps): ReactElement | null {
             }
           }}
         />
+        <span style={mutedStyle}>
+          {message.trim() === ''
+            ? t('emptyGenerates')
+            : draftedBy === ''
+              ? ''
+              : t('generatedBy', { model: draftedBy })}
+        </span>
       </label>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

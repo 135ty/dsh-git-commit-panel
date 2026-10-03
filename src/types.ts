@@ -113,6 +113,13 @@ export interface GenerateMessageRequest {
   locale?: string | undefined;
   /** Extra user intent appended to the prompt (the panel's optional hint box). */
   hint?: string | undefined;
+  /**
+   * Preferred provider route for the drafting call. Only honoured when an
+   * adapter is registered for it; otherwise the deployment default is used.
+   */
+  provider?: string | undefined;
+  /** Preferred model id, paired with {@link provider}. */
+  model?: string | undefined;
 }
 
 /** Result of one AI commit-message generation. */
@@ -197,6 +204,8 @@ export function readGenerateRequest(value: unknown): GenerateMessageRequest | nu
     staged: typeof value.staged === 'boolean' ? value.staged : undefined,
     locale: isNonEmptyString(value.locale) ? value.locale : undefined,
     hint: isNonEmptyString(value.hint) ? value.hint.slice(0, 500) : undefined,
+    provider: isNonEmptyString(value.provider) ? value.provider.slice(0, 200) : undefined,
+    model: isNonEmptyString(value.model) ? value.model.slice(0, 200) : undefined,
   };
 }
 

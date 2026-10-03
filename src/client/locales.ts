@@ -35,13 +35,14 @@ export const en = {
   noStaged: 'Nothing is staged yet.',
   repository: 'Repository',
   workspace: 'Workspace',
-  emptyMessage: 'Write a commit message, or let the AI draft one.',
   generateFailed: 'Could not generate a commit message.',
   commitFailed: 'Commit failed.',
   showFiles: 'Show changed files',
   hideFiles: 'Hide changed files',
   commits: 'Commit',
   andPush: 'and push',
+  emptyGenerates: 'Leave the message empty and the AI drafts one, then commits.',
+  generatedBy: 'Drafted by {model}',
 } as const;
 
 /** The Chinese dictionary; every English key must be present. */
@@ -72,13 +73,14 @@ export const zh: Record<keyof typeof en, string> = {
   noStaged: '当前没有已暂存的更改。',
   repository: '仓库',
   workspace: '工作区',
-  emptyMessage: '写一条提交信息，或让 AI 起草一条。',
   generateFailed: '无法生成提交信息。',
   commitFailed: '提交失败。',
   showFiles: '展开更改文件',
   hideFiles: '收起更改文件',
   commits: '提交',
   andPush: '并推送',
+  emptyGenerates: '留空则由 AI 起草提交信息并直接提交。',
+  generatedBy: '由 {model} 起草',
 };
 
 /** Dictionary key domain, used to type the registrant's `t` seat. */

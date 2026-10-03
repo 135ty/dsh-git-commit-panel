@@ -128,12 +128,7 @@ export class GitCommitService {
    */
   async generateCommitMessage(request: GenerateMessageRequest, signal?: AbortSignal): Promise<GenerateMessageResult> {
     const { canonical, root } = await this.gatedRepository(request.path, signal);
-    const selection = this.ctx.agentDefaultModel.currentSelection();
-    const provider = selection.provider?.trim() ?? '';
-    const model = selection.model?.trim() ?? '';
-    if (provider === '' || model === '') {
-      throw new ServiceError('model-unavailable', 'No default model is configured for this deployment.');
-    }
+    const { provider, model } = this.resolveSelection(request);
 
     const status = await readStatus(this.git, canonical, signal);
     if (status === null) {
@@ -255,9 +250,42 @@ export class GitCommitService {
     return tail(pushed.stderr.trim() || pushed.stdout.trim() || `pushed to ${upstream.stdout.trim()}`, 300);
   }
 
+  /**
+   * Resolve the provider/model the drafting call runs on.
+   *
+   * A caller-supplied pair is honoured only when an adapter is registered for
+   * that provider, so a browser cannot name an unroutable route. Everything
+   * else falls back to the deployment's default selection — the same one a
+   * freshly created agent starts on.
+   */
+  private resolveSelection(request: GenerateMessageRequest): { provider: string; model: string } {
+    const requestedProvider = request.provider?.trim() ?? '';
+    const requestedModel = request.model?.trim() ?? '';
+    if (requestedProvider !== '' && requestedModel !== '' && this.hasAdapter(requestedProvider)) {
+      return { provider: requestedProvider, model: requestedModel };
+    }
+
+    const selection = this.ctx.agentDefaultModel.currentSelection();
+    const provider = selection.provider?.trim() ?? '';
+    const model = selection.model?.trim() ?? '';
+    if (provider === '' || model === '') {
+      throw new ServiceError('model-unavailable', 'No default model is configured for this deployment.');
+    }
+    if (requestedProvider !== '' && !this.hasAdapter(requestedProvider)) {
+      this.ctx.logger.warn(
+        `dsh-git-commit-panel: no adapter for provider "${requestedProvider}"; using ${provider}/${model}`,
+      );
+    }
+    return { provider, model };
+  }
+
+  /** Whether an LLM adapter is currently registered for one provider route. */
+  private hasAdapter(provider: string): boolean {
+    return this.ctx.llm.listProviders().some((info) => info.id === provider);
+  }
+
   /** Canonicalize + authorize a workspace path. */
-  private async gated(path: string): Promise<string> {
-    const gate = await this.options.gate(path);
+  private async gated(path: string): Promise<string> {    const gate = await this.options.gate(path);
     if (!gate.ok) throw new ServiceError(gate.error.code, gate.error.message, gate.error.detail);
     return gate.canonical;
   }
