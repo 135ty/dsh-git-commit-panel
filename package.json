@@ -45,15 +45,19 @@
     "src",
     "scripts",
     "README.md",
+    "README.zh.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "npm run build:client && npm run build:host",
     "build:client": "node scripts/build.mjs",
-    "build:host": "tsc -p tsconfig.json",
+    "build:host": "tsc -p tsconfig.json && node scripts/build-host.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check:bundle": "node scripts/check-bundle.mjs",
-    "verify": "npm run typecheck && npm run build && npm run check:bundle"
+    "verify": "npm run typecheck && npm run build && npm run check:bundle",
+    "verify:panel": "node scripts/verify-panel.mjs",
+    "verify:generate": "node scripts/verify-generate.mjs",
+    "prepare": "node scripts/build.mjs && node scripts/build-host.mjs"
   },
   "peerDependencies": {
     "react": "^18.2.0"
@@ -62,6 +66,7 @@
     "@types/node": "^22.20.0",
     "@types/react": "^18.3.1",
     "esbuild": "^0.25.0",
+    "playwright-core": "^1.63.0",
     "typescript": "^5.7.0"
   },
   "license": "MIT",

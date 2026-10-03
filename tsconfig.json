@@ -9,7 +9,7 @@
     "rootDir": "src",
     "declaration": true,
     "declarationDir": "lib/types",
-    "emitDeclarationOnly": false,
+    "emitDeclarationOnly": true,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true,

@@ -58,17 +58,20 @@ const KIND_MARK: Record<FileChange['kind'], string> = {
 };
 
 /** Theme-native surface styles; every colour is a semantic DSH token. */
-const panelStyle: CSSProperties = {
+const panelRootStyle: CSSProperties = {
   position: 'absolute',
   right: 20,
   bottom: 20,
-  width: 'min(420px, calc(100vw - 40px))',
+  pointerEvents: 'auto',
+};
+
+const panelStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 10,
+  width: 'min(420px, calc(100vw - 40px))',
   padding: 14,
   borderRadius: 14,
-  pointerEvents: 'auto',
   background: 'var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base, Canvas))',
   color: 'var(--dsw-alias-label-primary, CanvasText)',
   border: '1px solid var(--dsw-alias-border-secondary, rgba(127,127,127,0.35))',
@@ -77,15 +80,11 @@ const panelStyle: CSSProperties = {
 };
 
 const badgeStyle: CSSProperties = {
-  position: 'absolute',
-  right: 20,
-  bottom: 20,
   display: 'inline-flex',
   alignItems: 'center',
   gap: 8,
   padding: '8px 14px',
   borderRadius: 999,
-  pointerEvents: 'auto',
   cursor: 'pointer',
   background: 'var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base, Canvas))',
   color: 'var(--dsw-alias-label-primary, CanvasText)',
@@ -347,11 +346,19 @@ export function Panel(props: PanelProps): ReactElement | null {
 
   if (!open) {
     return (
-      <button type="button" style={badgeStyle} title={t('badgeTitle')} onClick={() => setOpen(true)}>
-        <span aria-hidden="true">⑂</span>
-        <span>{branchLabel}</span>
-        <span style={mutedStyle}>{t('badgeFiles', { count: status.summary.unstaged })}</span>
-      </button>
+      <div style={panelRootStyle} data-dsh-git-commit-panel-root="pill">
+        <button
+          type="button"
+          style={badgeStyle}
+          title={t('badgeTitle')}
+          data-dsh-git-commit-panel="pill"
+          onClick={() => setOpen(true)}
+        >
+          <span aria-hidden="true">⑂</span>
+          <span>{branchLabel}</span>
+          <span style={mutedStyle}>{t('badgeFiles', { count: status.summary.unstaged })}</span>
+        </button>
+      </div>
     );
   }
 
@@ -361,7 +368,13 @@ export function Panel(props: PanelProps): ReactElement | null {
     && (stageAll ? status.files.length > 0 : stagedCount > 0);
 
   return (
-    <section style={panelStyle} role="dialog" aria-label={t('title')}>
+    <div style={panelRootStyle} data-dsh-git-commit-panel-root="card">
+      <section
+        style={panelStyle}
+        role="dialog"
+        aria-label={t('title')}
+        data-dsh-git-commit-panel="card"
+      >
       <header style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <strong style={{ flex: 1 }}>{t('title')}</strong>
         <span style={mutedStyle}>{branchLabel}</span>
@@ -471,6 +484,7 @@ export function Panel(props: PanelProps): ReactElement | null {
         <button
           type="button"
           style={terseButton}
+          data-dsh-git-commit-panel="commit"
           disabled={!canCommit || committing}
           onClick={() => { void onCommit(false); }}
         >
@@ -479,13 +493,15 @@ export function Panel(props: PanelProps): ReactElement | null {
         <button
           type="button"
           style={primaryButton}
+          data-dsh-git-commit-panel="commit-push"
           disabled={!canCommit || committing}
           onClick={() => { void onCommit(true); }}
         >
           {t('commitAndPush')}
         </button>
       </footer>
-    </section>
+      </section>
+    </div>
   );
 }
 

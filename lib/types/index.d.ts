@@ -17,9 +17,9 @@ import type { Context } from '@deepseek-ai/cordis';
 /** Stable Loader identity. */
 export declare const name = "dsh-git-commit-panel";
 /**
- * Required services: the HTTP carrier, the managed subprocess seam, the
- * default-model selector for AI commit messages, and the workspace registry
- * that defines the legal git targets.
+ * Required services: the HTTP carrier, the managed subprocess seam, the model
+ * runtime and its default selection for AI commit messages, and the workspace
+ * registry that defines the legal git targets.
  */
 export declare const inject: string[];
 /**
