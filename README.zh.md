@@ -57,6 +57,19 @@ dsh web --patch ./plugin.patch.yml --port 3199 --no-open
       name: 'E:/path/to/dsh-git-commit-panel/lib/index.js'
 ```
 
+### 生成失败时怎么报
+
+生成失败是一等公民式的失败，不会被吞掉：
+
+- 卡片保留现场，在按钮下方显示失败信息，标题是**无法生成提交信息**（而不是"提交失败"），并带上 `[code]` 和 message；
+- detail 行给出 provider 的原话和 request id，认证或额度问题可以直接从面板上看出来，例如 `[model-failed] The model call failed. Authentication Fails, Your api key: ****test is invalid (request_id: …)`；
+- 同一行会同步打到浏览器控制台，不必为了看堆栈去复现那次点击；
+- 留空却生成失败时**不会提交任何东西**：不做暂存、输入框保持为空、工作区原样不动，可以原地重试。
+
+generate 路由可能返回的 code：`model-unavailable`（未配置默认模型）、`model-failed`（`detail` 带 provider 原因）、`nothing-to-commit`、`not-a-repository`、`workspace-unknown`、`bad-request`、`internal`。
+
+![提交卡片中的失败提示](artifacts/failure-commit.png)
+
 ## 构建结构
 
 | 层 | 产物 | 职责 |
@@ -115,9 +128,10 @@ src/
 ```sh
 node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
 node scripts/verify-generate.mjs 'http://127.0.0.1:3199/?token=<token>'
+node scripts/verify-failure.mjs        # 自己起一个凭据故意无效的实例
 ```
 
-两者都需要 `playwright-core`（已在 devDependencies 中）和一个 Chromium 系浏览器；面板脚本还需要 `PATH` 中有 `git`，用于读取真实状态。
+两者都需要 `playwright-core`（已在 devDependencies 中）和一个 Chromium 系浏览器；面板脚本还需要 `PATH` 中有 `git`，用于读取真实状态。`verify-failure.mjs` 是自包含的：它对一个凭据无效的临时 home 启动 DSH 实例，因此不会消耗可用的凭据。
 
 ## 模型体验
 

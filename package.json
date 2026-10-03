@@ -57,6 +57,7 @@
     "verify": "npm run typecheck && npm run build && npm run check:bundle",
     "verify:panel": "node scripts/verify-panel.mjs",
     "verify:generate": "node scripts/verify-generate.mjs",
+    "verify:failure": "node scripts/verify-failure.mjs",
     "prepare": "node scripts/build.mjs && node scripts/build-host.mjs"
   },
   "peerDependencies": {

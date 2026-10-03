@@ -151,6 +151,8 @@ export declare function readGenerateRequest(value: unknown): GenerateMessageRequ
 export declare function readCommitRequest(value: unknown): CommitRequest | null;
 /** Whether a value is one of the declared change kinds. */
 export declare function isChangeKind(value: unknown): value is ChangeKind;
+/** Whether a value is a well-formed error envelope member. */
+export declare function isGitCommitError(value: unknown): value is GitCommitError;
 /** Whether a value is a well-formed repository status (route response guard). */
 export declare function isRepoStatus(value: unknown): value is RepoStatus;
 /** Whether a value is a well-formed diff payload. */

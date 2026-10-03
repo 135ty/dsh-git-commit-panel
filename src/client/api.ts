@@ -6,12 +6,13 @@
  *
  * @module dsh-git-commit-panel/client/api
  */
-import type {
-  CommitResult,
-  DiffPayload,
-  Envelope,
-  GitCommitError,
-  RepoStatus,
+import {
+  isGitCommitError,
+  type CommitResult,
+  type DiffPayload,
+  type Envelope,
+  type GitCommitError,
+  type RepoStatus,
 } from '../types.ts';
 
 /** Absolute route prefix, mirroring the host half's registration. */
@@ -47,7 +48,9 @@ async function post<T>(route: string, payload: Record<string, unknown>, signal?:
     if (typeof envelope !== 'object' || envelope === null) return { ok: false, error: TRANSPORT_ERROR };
     const record = envelope as Record<string, unknown>;
     if (record.ok === true) return { ok: true, value: record.value as T };
-    return { ok: false, error: (record.error as GitCommitError | undefined) ?? TRANSPORT_ERROR };
+    // Narrow rather than cast: a malformed error member would otherwise reach
+    // the panel as a typed-but-wrong object.
+    return { ok: false, error: isGitCommitError(record.error) ? record.error : TRANSPORT_ERROR };
   } catch {
     return { ok: false, error: TRANSPORT_ERROR };
   }

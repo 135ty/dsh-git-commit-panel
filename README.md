@@ -59,6 +59,19 @@ with
       name: 'E:/path/to/dsh-git-commit-panel/lib/index.js'
 ```
 
+### When the model call fails
+
+A generation failure is a first-class outcome, never a silent one:
+
+- the card keeps its state and shows the failure under the buttons, headed **Could not generate a commit message** (not "commit failed") and carrying `[code]` plus the message;
+- the provider's own sentence and request id are shown as the detail line, so an auth or quota problem is diagnosable from the panel — e.g. `[model-failed] The model call failed. Authentication Fails, Your api key: ****test is invalid (request_id: …)`;
+- the same line is mirrored to the browser console, so a diagnosis does not depend on reproducing the click;
+- an empty message box that fails to draft **commits nothing**: no staging happens, the box stays empty, and the work tree is untouched — retry in place.
+
+Codes that can come back from the generate route: `model-unavailable` (no default model configured), `model-failed` (`detail` carries the provider cause), `nothing-to-commit`, `not-a-repository`, `workspace-unknown`, `bad-request`, `internal`.
+
+![Failure surfaced in the commit card](artifacts/failure-commit.png)
+
 ## How it is built
 
 | Layer | Artifact | What it owns |
@@ -117,9 +130,10 @@ src/
 ```sh
 node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
 node scripts/verify-generate.mjs 'http://127.0.0.1:3199/?token=<token>'
+node scripts/verify-failure.mjs        # boots its own instance with a deliberately invalid key
 ```
 
-Both need `playwright-core` (already a dev dependency) and a Chromium-based browser; the panel harness additionally needs `git` on `PATH` for its ground-truth reads.
+Both need `playwright-core` (already a dev dependency) and a Chromium-based browser; the panel harness additionally needs `git` on `PATH` for its ground-truth reads. `verify-failure.mjs` is self-contained: it starts a DSH instance against a scratch home whose provider credential is invalid, so no working credential is spent.
 
 ## Model experience
 

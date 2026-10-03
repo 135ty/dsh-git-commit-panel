@@ -6,7 +6,7 @@
  *
  * @module dsh-git-commit-panel/client/api
  */
-import type { CommitResult, DiffPayload, Envelope, RepoStatus } from '../types.ts';
+import { type CommitResult, type DiffPayload, type Envelope, type RepoStatus } from '../types.ts';
 /** Absolute route prefix, mirroring the host half's registration. */
 export declare const ROUTE_PREFIX = "git-commit";
 /** Typed git operations over the wire. */

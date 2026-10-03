@@ -22,8 +22,7 @@ import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controlle
 import type {} from '@deepseek-ai/dsh-client-ui-session/client';
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client';
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots';
-import type { CommitResult, FileChange, GitCommitError, RepoStatus } from '../types.ts';
-import type { GitCommitApi } from './api.ts';
+import type { CommitResult, FileChange, GitCommitError, RepoStatus } from '../types.ts';import type { GitCommitApi } from './api.ts';
 
 /** Selector hook over the picked workspace's repository status. */
 export type GitCommitStatusHook = SnapshotSelectorHook<RepoStatus | null | undefined>;
@@ -201,6 +200,16 @@ export function Panel(props: PanelProps): ReactElement | null {
   const [busy, setBusy] = useState<'idle' | 'loading' | 'generating' | 'committing'>('idle');
   const [error, setError] = useState<GitCommitError | null>(null);
   const [notice, setNotice] = useState('');
+
+  // A handled failure is written to the panel; mirror it to the console so a
+  // diagnosis does not have to reproduce the click that produced it. Provider
+  // failures carry their own request id there.
+  useEffect(() => {
+    if (error === null) return;
+    console.warn(
+      `[dsh-git-commit-panel] ${error.code}: ${error.message}${error.detail === undefined ? '' : ` — ${error.detail}`}`,
+    );
+  }, [error]);
 
   const candidatesRef = useRef(candidates);
   candidatesRef.current = candidates;
@@ -499,8 +508,14 @@ export function Panel(props: PanelProps): ReactElement | null {
       {!stageAll && stagedCount === 0 ? <div style={mutedStyle}>{t('noStaged')}</div> : null}
 
       {error !== null ? (
-        <div style={{ color: 'var(--dsw-alias-label-error, #d9534f)', whiteSpace: 'pre-wrap' }}>
-          <div>{`${t('commitFailed')} [${error.code}] ${error.message}`}</div>
+        <div
+          style={{ color: 'var(--dsw-alias-label-error, #d9534f)', whiteSpace: 'pre-wrap' }}
+          data-dsh-git-commit-panel="error"
+        >
+          {/* The verb in the failure belongs to the code, not to the button
+              that happened to be pressed: an empty box that fails to draft is a
+              generation failure, not a commit failure. */}
+          <div>{`${t(errorHeading(error.code))} [${error.code}] ${error.message}`}</div>
           {error.detail !== undefined && error.detail !== '' ? (
             <div style={{ ...mutedStyle, maxHeight: 80, overflow: 'auto' }}>{error.detail}</div>
           ) : null}
@@ -549,6 +564,17 @@ function sameArray<T>(left: readonly T[], right: readonly T[]): boolean {
     if (left[index] !== right[index]) return false;
   }
   return true;
+}
+
+/** Dictionary key of the failure heading that belongs to one error code. */
+function errorHeading(code: GitCommitError['code']): 'generateFailed' | 'commitFailed' {
+  switch (code) {
+    case 'model-failed':
+    case 'model-unavailable':
+      return 'generateFailed';
+    default:
+      return 'commitFailed';
+  }
 }
 
 /** One-line summary of a settled commit. */

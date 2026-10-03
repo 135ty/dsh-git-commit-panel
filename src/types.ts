@@ -239,6 +239,19 @@ export function isChangeKind(value: unknown): value is ChangeKind {
   return typeof value === 'string' && CHANGE_KINDS.includes(value);
 }
 
+const ERROR_CODES: readonly string[] = [
+  'bad-request', 'workspace-unknown', 'not-a-repository', 'git-failed', 'nothing-to-commit',
+  'model-unavailable', 'model-failed', 'push-failed', 'internal',
+];
+
+/** Whether a value is a well-formed error envelope member. */
+export function isGitCommitError(value: unknown): value is GitCommitError {
+  if (!isRecord(value)) return false;
+  if (typeof value.code !== 'string' || !ERROR_CODES.includes(value.code)) return false;
+  if (typeof value.message !== 'string') return false;
+  return value.detail === undefined || typeof value.detail === 'string';
+}
+
 /** Whether a value is a well-formed repository status (route response guard). */
 export function isRepoStatus(value: unknown): value is RepoStatus {
   if (!isRecord(value)) return false;
