@@ -21,7 +21,7 @@ import {
   type Envelope,
   type GitCommitError,
 } from '../types.ts';
-import { ServiceError, toWireError, type GitCommitService } from './service.ts';
+import { toWireError, type GitCommitService } from './service.ts';
 
 /** Absolute route prefix owned by this plugin; nothing else may claim it. */
 export const ROUTE_PREFIX = '/git-commit';
@@ -152,12 +152,19 @@ export function registerGitCommitRoutes(ctx: Context, service: GitCommitService)
       return;
     }
 
+    // A browser that navigated away must not leave a git child or a provider
+    // request running: the request's own lifetime bounds every verb.
+    const controller = new AbortController();
+    const onAborted = (): void => controller.abort(new Error('request aborted'));
+    req.on('aborted', onAborted);
+    const signal = controller.signal;
+
     try {
       switch (pathname) {
         case `${ROUTE_PREFIX}/status`: {
           const request = readStatusRequest(payload);
           if (request === null) return void writeJson(res, 200, { ok: false, error: { code: 'bad-request', message: 'a workspace path is required' } });
-          const status = await service.status(request);
+          const status = await service.status(request, signal);
           if (status === null) {
             writeJson(res, 200, OK(null));
             return;
@@ -170,7 +177,7 @@ export function registerGitCommitRoutes(ctx: Context, service: GitCommitService)
         case `${ROUTE_PREFIX}/diff`: {
           const request = readDiffRequest(payload);
           if (request === null) return void writeJson(res, 200, { ok: false, error: { code: 'bad-request', message: 'a workspace path is required' } });
-          const diff = await service.diff(request);
+          const diff = await service.diff(request, signal);
           writeJson(res, 200, isDiffPayload(diff)
             ? OK(diff)
             : { ok: false, error: { code: 'internal', message: 'malformed diff payload' } });
@@ -179,7 +186,7 @@ export function registerGitCommitRoutes(ctx: Context, service: GitCommitService)
         case `${ROUTE_PREFIX}/generate`: {
           const request = readGenerateRequest(payload);
           if (request === null) return void writeJson(res, 200, { ok: false, error: { code: 'bad-request', message: 'a workspace path is required' } });
-          const generated = await service.generateCommitMessage(request);
+          const generated = await service.generateCommitMessage(request, signal);
           writeJson(res, 200, isGenerateMessageResult(generated)
             ? OK(generated)
             : { ok: false, error: { code: 'internal', message: 'malformed generation payload' } });
@@ -188,7 +195,7 @@ export function registerGitCommitRoutes(ctx: Context, service: GitCommitService)
         case `${ROUTE_PREFIX}/commit`: {
           const request = readCommitRequest(payload);
           if (request === null) return void writeJson(res, 200, { ok: false, error: { code: 'bad-request', message: 'a workspace path and a commit message are required' } });
-          const result = await service.commit(request);
+          const result = await service.commit(request, signal);
           writeJson(res, 200, isCommitResult(result)
             ? OK(result)
             : { ok: false, error: { code: 'internal', message: 'malformed commit payload' } });
@@ -198,11 +205,9 @@ export function registerGitCommitRoutes(ctx: Context, service: GitCommitService)
           writeJson(res, 404, { ok: false, error: { code: 'bad-request', message: 'unknown route' } });
       }
     } catch (error) {
-      if (error instanceof ServiceError) {
-        writeFailure(res, error);
-        return;
-      }
       writeFailure(res, error);
+    } finally {
+      req.off('aborted', onAborted);
     }
   };
 

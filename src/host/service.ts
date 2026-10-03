@@ -123,10 +123,11 @@ export class GitCommitService {
   /**
    * Generate one Conventional Commit message for the workspace's changes.
    * @param request - workspace, optional path restriction/staged choice/locale/hint.
+   * @param signal - cancellation following the HTTP request's lifetime.
    * @returns the message with the model identity that produced it.
    */
-  async generateCommitMessage(request: GenerateMessageRequest): Promise<GenerateMessageResult> {
-    const { canonical, root } = await this.gatedRepository(request.path);
+  async generateCommitMessage(request: GenerateMessageRequest, signal?: AbortSignal): Promise<GenerateMessageResult> {
+    const { canonical, root } = await this.gatedRepository(request.path, signal);
     const selection = this.ctx.agentDefaultModel.currentSelection();
     const provider = selection.provider?.trim() ?? '';
     const model = selection.model?.trim() ?? '';
@@ -134,7 +135,7 @@ export class GitCommitService {
       throw new ServiceError('model-unavailable', 'No default model is configured for this deployment.');
     }
 
-    const status = await readStatus(this.git, canonical);
+    const status = await readStatus(this.git, canonical, signal);
     if (status === null) {
       throw new ServiceError('not-a-repository', 'The workspace is not inside a git repository.');
     }
@@ -146,7 +147,7 @@ export class GitCommitService {
         : 'There are no unstaged changes to describe.');
     }
 
-    const diffs = await this.collectDiffs(root, selected, staged);
+    const diffs = await this.collectDiffs(root, selected, staged, signal);
     const prompt = buildCommitMessagePrompt({
       branch: status.branch,
       locale: request.locale,
@@ -155,7 +156,7 @@ export class GitCommitService {
       hint: request.hint,
     });
 
-    const message = await this.complete(provider, model, prompt);
+    const message = await this.complete(provider, model, prompt, signal);
     const validated = validateGeneratedCommitMessage(message);
     if (validated === null) {
       throw new ServiceError(
@@ -280,9 +281,11 @@ export class GitCommitService {
     root: string,
     files: readonly FileChange[],
     staged: boolean,
+    signal?: AbortSignal,
   ): Promise<{ path: string; patch: string }[]> {
     const out: { path: string; patch: string }[] = [];
     for (const file of files.slice(0, MAX_PROMPT_DIFF_FILES)) {
+      signal?.throwIfAborted();
       if (file.kind === 'untracked') {
         // An untracked file has no diff against the index; the file list is
         // its only signal, which the prompt states explicitly.
@@ -293,17 +296,32 @@ export class GitCommitService {
         this.git,
         root,
         { staged, paths: [file.path], maxBytes: Math.max(DIFF_FOR_PROMPT_BYTES, MAX_PROMPT_DIFF_CHARS_PER_FILE) },
+        signal,
       );
       out.push({ path: file.path, patch: payload.patch });
     }
     return out;
   }
 
-  /** One non-streaming model call assembled from the streaming API. */
-  private async complete(provider: string, model: string, prompt: string): Promise<string> {
+  /**
+   * One non-streaming model call assembled from the streaming API. The call is
+   * bounded by its own deadline and by the caller's lifetime, so a browser that
+   * navigated away does not leave a provider request running.
+   */
+  private async complete(
+    provider: string,
+    model: string,
+    prompt: string,
+    signal?: AbortSignal,
+  ): Promise<string> {
     const controller = new AbortController();
     const timeoutMs = this.options.generateTimeoutMs ?? 60_000;
-    const timer = setTimeout(() => controller.abort(new Error('commit message generation timed out')), timeoutMs);
+    const timer = setTimeout(
+      () => controller.abort(new Error('commit message generation timed out')),
+      timeoutMs,
+    );
+    const onAbort = (): void => controller.abort(signal?.reason);
+    signal?.addEventListener('abort', onAbort, { once: true });
     let text = '';
     try {
       const stream = this.ctx.llm.stream({
@@ -336,6 +354,7 @@ export class GitCommitService {
       );
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
     }
     if (text.trim() === '') {
       throw new ServiceError('model-failed', 'The model returned no text.');

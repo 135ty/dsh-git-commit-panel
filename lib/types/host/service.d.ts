@@ -51,9 +51,10 @@ export declare class GitCommitService {
     /**
      * Generate one Conventional Commit message for the workspace's changes.
      * @param request - workspace, optional path restriction/staged choice/locale/hint.
+     * @param signal - cancellation following the HTTP request's lifetime.
      * @returns the message with the model identity that produced it.
      */
-    generateCommitMessage(request: GenerateMessageRequest): Promise<GenerateMessageResult>;
+    generateCommitMessage(request: GenerateMessageRequest, signal?: AbortSignal): Promise<GenerateMessageResult>;
     /**
      * Stage (optionally), commit, and optionally push one workspace.
      * @param request - workspace, message, stageAll, push.
@@ -74,7 +75,11 @@ export declare class GitCommitService {
     private gatedRepository;
     /** Read one diff per selected file, bounded per file and in total. */
     private collectDiffs;
-    /** One non-streaming model call assembled from the streaming API. */
+    /**
+     * One non-streaming model call assembled from the streaming API. The call is
+     * bounded by its own deadline and by the caller's lifetime, so a browser that
+     * navigated away does not leave a provider request running.
+     */
     private complete;
 }
 /**
