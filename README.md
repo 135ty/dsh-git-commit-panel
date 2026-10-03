@@ -13,8 +13,23 @@ The behaviour mirrors ZCode's git tool: same trigger (unstaged changes), same me
 - **Appears only when it matters.** The panel is mounted in the frame-wide `shell.overlay` seat and renders nothing until a registered workspace inside a git repository reports work-tree changes. A clean tree leaves no UI at all.
 - **Picks the workspace for you.** It prefers the directories an active session is working in, then falls back to every registered workspace, and inspects candidates cheapest-first (`git status` only; diffs are fetched on demand).
 - **Drafts the message with AI.** `Generate with AI` asks the host half for a Conventional Commit message built from the branch, the changed-file summary, bounded diff excerpts, and an optional free-text hint.
+- **An empty box is not an error.** Press `Commit` or `Commit & Push` with nothing typed and the AI drafts the message first; that drafted text is what gets committed. The card says so under the message box, and the box shows which model drafted it.
 - **Commits, or commits and pushes.** `Stage all changes before committing` controls whether the work tree is staged wholesale (including untracked files) or only what is already in the index. `Commit & Push` pushes to the configured upstream and reports a missing upstream as an actionable error.
 - **Speaks both languages.** English and Chinese dictionaries ship with the plugin and follow the GUI locale.
+
+### Which model drafts the message
+
+The deployment's default model (`agent-default-model`, e.g. `deepseek-official/deepseek-flash`) — **not** the model currently selected in the conversation you happen to be looking at. That choice is deliberate: the host half has no session context, so it always has a usable route, and drafting a commit subject is not worth changing the model your conversation runs on. Change it by editing the deployment default in the profile patch:
+
+```yaml
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: deepseek-official
+    model: deepseek-flash
+```
+
+The generate route also accepts an optional `{ provider, model }` pair and honours it when an adapter is registered for that provider, falling back to the default otherwise — the hook for a future per-session follow mode. The panel itself does not send it today, because a frame-wide overlay has no reliable notion of "the current session".
 
 ## Install
 
@@ -69,7 +84,7 @@ Every route is `POST`, JSON in, `{ ok: true, value }` or `{ ok: false, error: { 
 |---|---|---|
 | `/git-commit/status` | `{ path }` | `RepoStatus` or `null` (not a repository) |
 | `/git-commit/diff` | `{ path, paths?, staged?, maxBytes? }` | `{ patch, truncated, bytes }` |
-| `/git-commit/generate` | `{ path, paths?, staged?, locale?, hint? }` | `{ message, provider, model }` |
+| `/git-commit/generate` | `{ path, paths?, staged?, locale?, hint?, provider?, model? }` | `{ message, provider, model }` |
 | `/git-commit/commit` | `{ path, message, stageAll, push? }` | `{ commit, subject, branch, pushed, pushDetail? }` |
 
 Error codes: `bad-request`, `workspace-unknown`, `not-a-repository`, `git-failed`, `nothing-to-commit`, `model-unavailable`, `model-failed`, `push-failed`, `internal`.
@@ -97,7 +112,7 @@ src/
   client/locales.ts   en/zh copy
 ```
 
-`scripts/verify-panel.mjs` and `scripts/verify-generate.mjs` drive a real Chromium against a running instance and write screenshots plus a JSON report into `artifacts/`. The panel harness also exercises the trigger contract itself: it checks that a clean work tree renders no window, seeds a change, and then commits through the card.
+`scripts/verify-panel.mjs` and `scripts/verify-generate.mjs` drive a real Chromium against a running instance and write screenshots plus a JSON report into `artifacts/`. The panel harness also exercises the trigger and drafting contracts itself: a clean work tree renders no window, a seeded change brings it back, an empty message box still commits (drafting first), and the explicit generate action fills the box.
 
 ```sh
 node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace

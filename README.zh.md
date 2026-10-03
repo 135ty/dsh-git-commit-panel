@@ -13,8 +13,23 @@
 - **只在需要时出现。** 面板注册在页面级 `shell.overlay` 槽位，只有当某个已注册工作区位于 git 仓库内且存在未提交改动时才渲染；工作区干净时完全不占界面。
 - **自动选择工作区。** 优先使用有会话正在工作的目录，其次回退到全部已注册工作区，按代价从低到高探测（只跑 `git status`，diff 在需要时才取）。
 - **AI 起草提交信息。** `AI 生成` 会让 Host 侧根据分支、变更文件摘要、截断后的 diff 片段，以及可选的补充说明，生成一条 Conventional Commit 信息。
+- **留空不是错误。** 什么都不填直接点 `提交` 或 `提交并推送` 时，先由 AI 起草信息，再用起草结果完成提交。卡片在输入框下方说明了这一点，生成后还会标出是哪个模型起草的。
 - **提交，或提交并推送。** `提交前暂存全部更改` 决定是整体暂存（含未跟踪文件）还是只提交索引里已有的内容；`提交并推送` 会推送到已配置的上游，缺少上游时给出可操作的错误提示。
 - **中英双语。** 插件自带中英文词典，跟随 GUI 语言切换。
+
+### 用哪个模型起草
+
+使用部署的默认模型（`agent-default-model`，例如 `deepseek-official/deepseek-flash`），**不跟随**你当前正在看的那个会话所选的模型。这是有意的选择：Host 侧没有会话上下文，这样永远有可用的路由，而且起草一条提交信息并不值得改动对话所用的模型。要换模型，改 profile 补丁里的部署默认值：
+
+```yaml
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: deepseek-official
+    model: deepseek-flash
+```
+
+generate 路由另外接受可选的 `{ provider, model }`，在该 provider 已注册适配器时优先使用，否则回退到默认值——这是为将来「跟随会话模型」预留的接口。面板当前不会传它，因为页面级浮层没有可靠的「当前会话」概念。
 
 ## 安装
 
@@ -67,7 +82,7 @@ npm run verify      # 类型检查 + 构建 + client bundle 契约检查
 |---|---|---|
 | `/git-commit/status` | `{ path }` | `RepoStatus`，或 `null`（不是仓库） |
 | `/git-commit/diff` | `{ path, paths?, staged?, maxBytes? }` | `{ patch, truncated, bytes }` |
-| `/git-commit/generate` | `{ path, paths?, staged?, locale?, hint? }` | `{ message, provider, model }` |
+| `/git-commit/generate` | `{ path, paths?, staged?, locale?, hint?, provider?, model? }` | `{ message, provider, model }` |
 | `/git-commit/commit` | `{ path, message, stageAll, push? }` | `{ commit, subject, branch, pushed, pushDetail? }` |
 
 错误码：`bad-request`、`workspace-unknown`、`not-a-repository`、`git-failed`、`nothing-to-commit`、`model-unavailable`、`model-failed`、`push-failed`、`internal`。
@@ -95,7 +110,7 @@ src/
   client/locales.ts   中英文文案
 ```
 
-`scripts/verify-panel.mjs` 与 `scripts/verify-generate.mjs` 会用真实 Chromium 驱动一个正在运行的实例，并把截图和 JSON 报告写入 `artifacts/`。面板校验脚本同时覆盖触发契约本身：确认干净工作区不渲染任何窗口，注入一个改动，然后通过卡片完成一次真实提交。
+`scripts/verify-panel.mjs` 与 `scripts/verify-generate.mjs` 会用真实 Chromium 驱动一个正在运行的实例，并把截图和 JSON 报告写入 `artifacts/`。面板校验脚本同时覆盖触发与起草契约：干净工作区不渲染任何窗口，注入改动后窗口回来，提交信息留空也能完成提交（先起草再提交），显式的生成动作会把内容填进输入框。
 
 ```sh
 node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
