@@ -1,0 +1,9 @@
+# dsh-git-commit-panel bundle patch.
+#
+# One row, two faces: the node half (exports ".") runs in the host process and
+# owns the git verbs, the workspace gate, and the AI commit-message call; the
+# browser half (exports "./client", served from /plugins/<id>/client.js) is
+# loaded by the web GUI because package.json declares `dsh.client`.
+- insert:
+    - id: git-commit-panel
+      name: dsh-git-commit-panel
