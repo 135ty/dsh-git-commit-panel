@@ -11,6 +11,7 @@
  * Usage: node verify-panel.mjs <base-url-with-token> [expected-unstaged-count]
  */
 import { mkdir, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
@@ -20,11 +21,30 @@ const OUT = resolve(HERE, '..', 'artifacts');
 
 const url = process.argv[2];
 if (url === undefined) {
-  console.error('usage: node verify-panel.mjs <base-url-with-token> [expected-unstaged-count]');
+  console.error('usage: node verify-panel.mjs <base-url-with-token> [workspace-path]');
   process.exit(2);
 }
-/** Ground truth from `git status`; the harness asserts against it rather than a magic number. */
-const expectedUnstaged = process.argv[3] === undefined ? null : Number(process.argv[3]);
+/**
+ * The repository the panel is expected to pick. The harness both reads it (for
+ * ground truth) and mutates it, so the trigger contract can be exercised from
+ * the clean side as well as the dirty side.
+ */
+const workspace = resolve(process.argv[3] ?? '.');
+
+/** Ground truth for the pill's count, read straight from the repository. */
+function unstagedCount() {
+  const raw = execFileSync('git', ['status', '--porcelain=v2', '--untracked-files=all', '-z'], {
+    cwd: workspace,
+    encoding: 'utf8',
+  });
+  return raw.split('\0').filter((record) => /^[12u?]/.test(record)).length;
+}
+
+/** Seed one work-tree change so the dirty-side assertions have a subject. */
+function seedChange() {
+  const target = join(workspace, 'panel-verify.txt');
+  execFileSync('node', ['-e', `require('node:fs').appendFileSync(${JSON.stringify(target)}, 'change\\n')`]);
+}
 
 const results = [];
 const check = (ok, label, extra = '') => {
@@ -76,24 +96,60 @@ for (let attempt = 0; attempt < 4; attempt += 1) {
   await page.waitForTimeout(400);
 }
 
+const pillSelector = '[data-dsh-git-commit-panel="pill"]';
+
+/**
+ * Poll until the pill's presence matches expectation. The panel re-probes its
+ * candidate workspaces on visibility, focus, and a 20s timer, so a state
+ * change needs either a reload or a bounded wait.
+ * @param present - whether the pill must be there.
+ * @param timeoutMs - bound for the wait.
+ * @returns the last observed presence.
+ */
+async function waitForPill(present, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let seen = !present;
+  while (Date.now() < deadline) {
+    seen = await page.locator(pillSelector).count() > 0;
+    if (seen === present) return seen;
+    await page.waitForTimeout(500);
+  }
+  return seen;
+}
+
+// Trigger contract, clean side: a clean work tree must produce no window at
+// all, and a fresh change must bring it back.
+if (unstagedCount() === 0) {
+  const seen = await waitForPill(false, 6_000);
+  check(!seen, 'no floating window while the work tree is clean');
+  seedChange();
+  let appeared = await waitForPill(true, 30_000);
+  if (!appeared) {
+    // The overlay re-probes on focus and on its timer; a reload is the
+    // deterministic way to force the first probe.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('[data-shell-overlay]', { timeout: 45_000 });
+    appeared = await waitForPill(true, 30_000);
+  }
+  check(appeared, 'floating window appears after a work-tree change');
+  await page.waitForTimeout(2_000);
+}
+
+const expectedUnstaged = unstagedCount();
 const overlayHtml = frameReady
   ? await page.locator('[data-shell-overlay]').innerHTML().catch(() => '')
   : '';
-const pill = page.locator('[data-dsh-git-commit-panel="pill"]').first();
+const pill = page.locator(pillSelector).first();
 const pillVisible = await pill.isVisible().catch(() => false);
 check(pillVisible, 'floating commit pill rendered', pillVisible ? '' : `overlay html: ${overlayHtml.slice(0, 300)}`);
 
 const pillText = pillVisible ? (await pill.innerText()).replace(/\s+/g, ' ').trim() : '';
 check(pillText.includes('main'), 'pill shows the branch name', pillText);
-if (expectedUnstaged === null) {
-  check(/\d/.test(pillText), 'pill carries a change count', pillText);
-} else {
-  check(
-    new RegExp(`\\b${expectedUnstaged}\\b`).test(pillText),
-    `pill shows the unstaged change count (expected ${expectedUnstaged})`,
-    pillText,
-  );
-}
+check(
+  new RegExp(`\\b${expectedUnstaged}\\b`).test(pillText),
+  `pill shows the unstaged change count (expected ${expectedUnstaged})`,
+  pillText,
+);
 
 await mkdir(OUT, { recursive: true });
 await page.screenshot({ path: join(OUT, 'panel-pill.png') });

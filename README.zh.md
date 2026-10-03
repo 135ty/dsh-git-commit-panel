@@ -95,7 +95,14 @@ src/
   client/locales.ts   中英文文案
 ```
 
-`scripts/verify-panel.mjs` 与 `scripts/verify-generate.mjs` 会用真实 Chromium 驱动一个正在运行的实例，并把截图和 JSON 报告写入 `artifacts/`。
+`scripts/verify-panel.mjs` 与 `scripts/verify-generate.mjs` 会用真实 Chromium 驱动一个正在运行的实例，并把截图和 JSON 报告写入 `artifacts/`。面板校验脚本同时覆盖触发契约本身：确认干净工作区不渲染任何窗口，注入一个改动，然后通过卡片完成一次真实提交。
+
+```sh
+node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
+node scripts/verify-generate.mjs 'http://127.0.0.1:3199/?token=<token>'
+```
+
+两者都需要 `playwright-core`（已在 devDependencies 中）和一个 Chromium 系浏览器；面板脚本还需要 `PATH` 中有 `git`，用于读取真实状态。
 
 ## 模型体验
 

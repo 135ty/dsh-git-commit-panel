@@ -97,7 +97,14 @@ src/
   client/locales.ts   en/zh copy
 ```
 
-`scripts/verify-panel.mjs` and `scripts/verify-generate.mjs` drive a real Chromium against a running instance and write screenshots plus a JSON report into `artifacts/`.
+`scripts/verify-panel.mjs` and `scripts/verify-generate.mjs` drive a real Chromium against a running instance and write screenshots plus a JSON report into `artifacts/`. The panel harness also exercises the trigger contract itself: it checks that a clean work tree renders no window, seeds a change, and then commits through the card.
+
+```sh
+node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
+node scripts/verify-generate.mjs 'http://127.0.0.1:3199/?token=<token>'
+```
+
+Both need `playwright-core` (already a dev dependency) and a Chromium-based browser; the panel harness additionally needs `git` on `PATH` for its ground-truth reads.
 
 ## Model experience
 
