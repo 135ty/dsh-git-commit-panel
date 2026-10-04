@@ -2,7 +2,7 @@
 
 English · [中文](README.md)
 
-A DSH web GUI plugin: when a git repository in a workspace has uncommitted changes, a small pill floats in the page showing the branch and how many changes are pending. Clicking it opens the commit card — write the message yourself or let AI draft it, then commit, or commit and push right away.
+A DSH web GUI plugin: when a git repository in a workspace has uncommitted changes, a small pill floats in the page showing the branch, how many changes are pending and the added/removed line totals (e.g. `⑂ main 6 changed +61 -5`). Clicking it opens the commit card — write the message yourself or let AI draft it, then commit, or commit and push right away.
 
 The behaviour mirrors ZCode's git tool: same trigger, same message rules (a Conventional Commit subject, type and scope in English, subject under 72 characters), same two actions.
 

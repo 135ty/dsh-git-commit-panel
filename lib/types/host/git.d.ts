@@ -8,7 +8,7 @@
  * @module dsh-git-commit-panel/host/git
  */
 import type { Context } from '@deepseek-ai/cordis';
-import type { ChangeKind, ChangeSummary, DiffPayload, FileChange, RepoStatus } from '../types.ts';
+import type { ChangeKind, ChangeSummary, DiffPayload, FileChange, LineCounts, RepoStatus } from '../types.ts';
 /** Collected-output cap for one git command (4 MiB). */
 export declare const OUTPUT_CAP_BYTES: number;
 /** Milliseconds a git command may run before the subprocess tree is terminated. */
@@ -87,6 +87,18 @@ export declare function classify(xy: string): ChangeKind;
 export declare function toFileChanges(entries: readonly PorcelainEntry[]): FileChange[];
 /** Count one change set. */
 export declare function summarize(files: readonly FileChange[]): ChangeSummary;
+/** Largest untracked file whose lines are counted (512 KiB). */
+export declare const UNTRACKED_READ_CAP_BYTES: number;
+/** Most untracked files read for one status (the rest contribute nothing). */
+export declare const UNTRACKED_FILE_CAP = 200;
+/**
+ * Sum the added and removed lines of a `git diff --numstat -z` stream. A binary
+ * row (`-\t-`) and a rename's trailing name records carry no counts and are
+ * skipped, so the totals never depend on the path shape.
+ * @param raw - the NUL-delimited numstat output.
+ * @returns the summed line counts.
+ */
+export declare function sumNumstat(raw: string): LineCounts;
 /**
  * Read the complete status of one already-gated workspace directory.
  * @param git - the runner.

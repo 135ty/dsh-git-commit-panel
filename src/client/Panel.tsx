@@ -65,12 +65,45 @@ const KIND_MARK: Record<FileChange['kind'], string> = {
  * No literal colour appears here, so the panel follows light/dark/system
  * without its own theme handling.
  */
-const panelRootStyle: CSSProperties = {
+const panelRootBase: CSSProperties = {
   position: 'absolute',
-  right: 20,
-  bottom: 20,
   pointerEvents: 'auto',
 };
+
+/** Anchor used when the MCP manager's capsule is not on screen. */
+const fallbackAnchor: CSSProperties = { right: 20, bottom: 20 };
+
+/** The MCP manager's floating capsule; `dm-` is that plugin's own class prefix. */
+const MCP_CAPSULE_SELECTOR = '.dm-float';
+
+/** Gap between the capsule's bottom edge and the panel below it. */
+const CAPSULE_GAP_PX = 8;
+
+/** The shell re-anchors the capsule as the session layout changes. */
+const ANCHOR_POLL_MS = 1_000;
+
+/**
+ * Anchor the panel directly below the MCP manager's capsule when that capsule
+ * is on screen, right-aligned with it. The capsule is `position: fixed` and
+ * moves with the session layout — its vertical offset is 40 in a blank session
+ * and 8 in an active one — so the anchor is measured rather than hardcoded, and
+ * moved with the host's own config. A deployment without that plugin keeps the
+ * frame's bottom-right corner.
+ * @returns the positioning half of the panel root style.
+ */
+function readAnchor(): CSSProperties {
+  if (typeof document === 'undefined') return fallbackAnchor;
+  const capsule = document.querySelector(MCP_CAPSULE_SELECTOR);
+  const layer = document.querySelector('[data-shell-overlay]');
+  if (capsule === null || layer === null) return fallbackAnchor;
+  const capsuleRect = capsule.getBoundingClientRect();
+  if (capsuleRect.width === 0 && capsuleRect.height === 0) return fallbackAnchor;
+  const layerRect = layer.getBoundingClientRect();
+  return {
+    top: Math.round(capsuleRect.bottom - layerRect.top + CAPSULE_GAP_PX),
+    right: Math.round(Math.max(CAPSULE_GAP_PX, layerRect.right - capsuleRect.right)),
+  };
+}
 
 const panelStyle: CSSProperties = {
   display: 'flex',
@@ -162,6 +195,19 @@ const mutedStyle: CSSProperties = {
   fontSize: 'var(--dsw-font-xxs-12-font-size)',
   lineHeight: 'var(--dsw-font-xxs-12-line-height)',
 };
+
+/** The `+n -m` stat: tabular figures so the pill does not jitter as it counts. */
+const statStyle: CSSProperties = {
+  display: 'inline-flex',
+  gap: 6,
+  fontVariantNumeric: 'tabular-nums',
+};
+
+/** Added lines, in the theme's own success tone. */
+const additionStyle: CSSProperties = { color: 'var(--dsw-alias-state-success-primary)' };
+
+/** Removed lines, in the theme's own error tone. */
+const deletionStyle: CSSProperties = { color: 'var(--dsw-alias-state-error-primary)' };
 
 /**
  * A themed button. Hover is the one affordance inline styles cannot express
@@ -257,6 +303,29 @@ export function Panel(props: PanelProps): ReactElement | null {
   const [busy, setBusy] = useState<'idle' | 'loading' | 'generating' | 'committing'>('idle');
   const [error, setError] = useState<GitCommitError | null>(null);
   const [notice, setNotice] = useState('');
+  /** Positioning half of the root style, measured against the MCP capsule. */
+  const [anchor, setAnchor] = useState<CSSProperties>(fallbackAnchor);
+
+  // The panel hangs below the MCP manager's capsule, and the shell re-anchors
+  // that capsule as the session layout changes (blank vs active, window size),
+  // so the anchor is re-read cheaply and the state only changes when it moved.
+  useEffect(() => {
+    const measure = (): void => {
+      const next = readAnchor();
+      setAnchor((current) => (
+        current.top === next.top && current.right === next.right && current.bottom === next.bottom
+          ? current
+          : next
+      ));
+    };
+    measure();
+    const timer = window.setInterval(measure, ANCHOR_POLL_MS);
+    window.addEventListener('resize', measure);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
 
   // A handled failure is written to the panel; mirror it to the console so a
   // diagnosis does not have to reproduce the click that produced it. Provider
@@ -349,6 +418,9 @@ export function Panel(props: PanelProps): ReactElement | null {
     [status],
   );
   const stagedCount = status?.summary.staged ?? 0;
+  // A host half that predates the line totals simply renders none of them.
+  const additions = status?.lines?.additions ?? 0;
+  const deletions = status?.lines?.deletions ?? 0;
 
   /** Refresh from the panel's own button. */
   const onRefresh = useCallback((): void => {
@@ -439,7 +511,7 @@ export function Panel(props: PanelProps): ReactElement | null {
 
   if (!open) {
     return (
-      <div style={panelRootStyle} data-dsh-git-commit-panel-root="pill">
+      <div style={{ ...panelRootBase, ...anchor }} data-dsh-git-commit-panel-root="pill">
         <HoverButton
           style={badgeStyle}
           hoverStyle={ghostHover}
@@ -450,6 +522,13 @@ export function Panel(props: PanelProps): ReactElement | null {
           <span aria-hidden="true">⑂</span>
           <span>{branchLabel}</span>
           <span style={mutedStyle}>{t('badgeFiles', { count: status.summary.unstaged })}</span>
+          {additions > 0 || deletions > 0 ? (
+            <span style={statStyle} data-dsh-git-commit-panel="stat">
+              {/* A side with nothing to report is left out rather than shown as 0. */}
+              {additions > 0 ? <span style={additionStyle}>{`+${additions}`}</span> : null}
+              {deletions > 0 ? <span style={deletionStyle}>{`-${deletions}`}</span> : null}
+            </span>
+          ) : null}
         </HoverButton>
       </div>
     );
@@ -463,7 +542,7 @@ export function Panel(props: PanelProps): ReactElement | null {
   const canCommit = !busy.startsWith('gen') && !committing && hasSomethingToCommit;
 
   return (
-    <div style={panelRootStyle} data-dsh-git-commit-panel-root="card">
+    <div style={{ ...panelRootBase, ...anchor }} data-dsh-git-commit-panel-root="card">
       <section
         style={panelStyle}
         role="dialog"

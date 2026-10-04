@@ -9,7 +9,9 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-subprocess';
-import type { ChangeKind, ChangeSummary, DiffPayload, FileChange, RepoStatus } from '../types.ts';
+import { readFile, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { ChangeKind, ChangeSummary, DiffPayload, FileChange, LineCounts, RepoStatus } from '../types.ts';
 
 /** Collected-output cap for one git command (4 MiB). */
 export const OUTPUT_CAP_BYTES = 4 * 1024 * 1024;
@@ -276,6 +278,94 @@ export function summarize(files: readonly FileChange[]): ChangeSummary {
   return { total: files.length, staged, unstaged, untracked };
 }
 
+/** Largest untracked file whose lines are counted (512 KiB). */
+export const UNTRACKED_READ_CAP_BYTES = 512 * 1024;
+
+/** Most untracked files read for one status (the rest contribute nothing). */
+export const UNTRACKED_FILE_CAP = 200;
+
+/**
+ * Sum the added and removed lines of a `git diff --numstat -z` stream. A binary
+ * row (`-\t-`) and a rename's trailing name records carry no counts and are
+ * skipped, so the totals never depend on the path shape.
+ * @param raw - the NUL-delimited numstat output.
+ * @returns the summed line counts.
+ */
+export function sumNumstat(raw: string): LineCounts {
+  let additions = 0;
+  let deletions = 0;
+  for (const record of raw.split('\0')) {
+    if (record === '') continue;
+    const [added, removed] = record.split('\t');
+    if (added === undefined || removed === undefined) continue;
+    if (added === '-' || removed === '-') continue;
+    const plus = Number.parseInt(added, 10);
+    const minus = Number.parseInt(removed, 10);
+    if (Number.isFinite(plus)) additions += plus;
+    if (Number.isFinite(minus)) deletions += minus;
+  }
+  return { additions, deletions };
+}
+
+/** Lines in one text buffer, counting a final line without a trailing newline. */
+function countLines(text: Buffer): number {
+  if (text.length === 0) return 0;
+  let breaks = 0;
+  for (const byte of text) if (byte === 0x0a) breaks += 1;
+  return text[text.length - 1] === 0x0a ? breaks : breaks + 1;
+}
+
+/**
+ * Count the lines of untracked files, which no `git diff` can see. A file that
+ * is binary, unreadable, or larger than the read cap contributes nothing, so a
+ * huge or exotic new file can never stall a status read.
+ * @param root - repository top level.
+ * @param paths - repository-relative untracked paths.
+ * @returns the added line total.
+ */
+async function countUntrackedLines(root: string, paths: readonly string[]): Promise<number> {
+  let lines = 0;
+  for (const path of paths.slice(0, UNTRACKED_FILE_CAP)) {
+    try {
+      const absolute = join(root, path);
+      const info = await stat(absolute);
+      if (!info.isFile() || info.size > UNTRACKED_READ_CAP_BYTES) continue;
+      const text = await readFile(absolute);
+      if (text.includes(0)) continue;
+      lines += countLines(text);
+    } catch {
+      // A path that vanished or cannot be read simply adds nothing.
+    }
+  }
+  return lines;
+}
+
+/**
+ * Line totals for the change set the pill counts: `git diff --numstat` reads
+ * the tracked files against the index (the same unstaged set `summary.unstaged`
+ * counts), and untracked files are counted by reading them. A clean work tree
+ * costs no extra git invocation.
+ * @param git - the runner.
+ * @param root - repository top level.
+ * @param files - the parsed change set.
+ * @param signal - cancellation.
+ * @returns added and removed lines.
+ */
+async function readLineCounts(
+  git: GitRunner,
+  root: string,
+  files: readonly FileChange[],
+  signal?: AbortSignal,
+): Promise<LineCounts> {
+  const unstaged = files.filter((file) => file.unstaged);
+  if (unstaged.length === 0) return { additions: 0, deletions: 0 };
+  const numstat = await git.run(['diff', '--numstat', '-z'], root, signal);
+  const tracked = numstat.exitCode === 0 ? sumNumstat(numstat.stdout) : { additions: 0, deletions: 0 };
+  const untracked = unstaged.filter((file) => file.kind === 'untracked').map((file) => file.path);
+  if (untracked.length === 0) return tracked;
+  return { ...tracked, additions: tracked.additions + await countUntrackedLines(root, untracked) };
+}
+
 /**
  * Read the complete status of one already-gated workspace directory.
  * @param git - the runner.
@@ -302,6 +392,7 @@ export async function readStatus(
   const parsed = parsePorcelain(status.stdout);
   const files = toFileChanges(parsed.entries);
   const summary = summarize(files);
+  const lines = await readLineCounts(git, root, files, signal);
   return {
     workspace,
     root,
@@ -312,6 +403,7 @@ export async function readStatus(
     behind: parsed.behind,
     files,
     summary,
+    lines,
     hasUnstagedChanges: files.some((file) => file.unstaged),
     hasStagedChanges: files.some((file) => file.staged),
   };

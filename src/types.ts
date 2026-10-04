@@ -54,6 +54,16 @@ export interface ChangeSummary {
   untracked: number;
 }
 
+/**
+ * Line totals of one change set, as the work tree reads them against the index.
+ * An untracked file counts as all-added: git reports no diff for a path it does
+ * not track yet.
+ */
+export interface LineCounts {
+  additions: number;
+  deletions: number;
+}
+
 /** The repository facts the floating window renders. */
 export interface RepoStatus {
   /** Canonical workspace root the caller asked about (host-resolved). */
@@ -70,6 +80,13 @@ export interface RepoStatus {
   /** Complete change set of the repository. */
   files: readonly FileChange[];
   summary: ChangeSummary;
+  /**
+   * Added and removed lines across the unstaged change set `summary.unstaged`
+   * counts. Optional because the two halves do not always swap together: the
+   * browser bundle is re-served on a page load while a changed host half needs a
+   * restart, so a client can meet a status that predates these totals.
+   */
+  lines?: LineCounts | undefined;
   /** The plugin's own trigger: the repository has work-tree changes. */
   hasUnstagedChanges: boolean;
   /** Staged changes exist, so "commit what is staged" is possible. */
@@ -271,6 +288,10 @@ export function isRepoStatus(value: unknown): value is RepoStatus {
   }
   const summary = value.summary;
   if (!isRecord(summary)) return false;
+  if (value.lines !== undefined) {
+    if (!isRecord(value.lines)) return false;
+    if (typeof value.lines.additions !== 'number' || typeof value.lines.deletions !== 'number') return false;
+  }
   return typeof summary.total === 'number'
     && typeof summary.staged === 'number'
     && typeof summary.unstaged === 'number'
