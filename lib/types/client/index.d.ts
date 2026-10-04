@@ -2,7 +2,8 @@
  * dsh-git-commit-panel browser half.
  *
  * One registration into the frame-wide `shell.overlay` seat: the floating
- * commit pill and its expanded commit card. The seat is additive and
+ * commit pill and its expanded commit card, both scoped to the workspace of the
+ * conversation the main view is showing. The seat is additive and
  * click-through, so the panel opts back into pointer events and never blocks
  * the application underneath.
  *
@@ -30,7 +31,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
         useGitCommitStatus: SnapshotSelectorHook<RepoStatus | null | undefined>;
     }
 }
-/** Services this half needs: the slot registry, the dictionary registry, and the client session/workspace lists. */
+/** Services this half needs: the slot registry, the dictionary registry, and the client session list. */
 export declare const inject: string[];
 /**
  * Client plugin body: publish the status source, then register the panel into

@@ -1,13 +1,13 @@
 /**
  * The floating commit panel. Rendered into the frame-wide `shell.overlay`
- * seat, it shows a small pill while the picked workspace has work-tree
- * changes and expands into a commit card: changed-file list, a message box
- * that the user can write or have the host's model draft, and the two commit
- * actions.
+ * seat, it shows a small pill while the conversation the main view is showing
+ * sits in a workspace with work-tree changes, and expands into a commit card:
+ * changed-file list, a message box that the user can write or have the host's
+ * model draft, and the two commit actions.
  *
  * The component is deliberately data-poor: it receives the standard
- * `useSessions` / `useWorkspaces` seats and one injected status hook, and every
- * git or model decision happens in the host half through {@link GitCommitApi}.
+ * `useSessions` seat and one injected status hook, and every git or model
+ * decision happens in the host half through {@link GitCommitApi}.
  *
  * @module dsh-git-commit-panel/client/Panel
  */
@@ -15,12 +15,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots';
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client';
-import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client';
-// Type-only: these pull the framework standard-prop declaration merges
-// (`useSessions`, `useWorkspaces`) into this program. They are erased at
-// build time and create no bundle request.
+// Type-only: pulls the framework standard-prop declaration merge
+// (`useSessions`) into this program. It is erased at build time and creates no
+// bundle request.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client';
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client';
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots';
 import type { CommitResult, FileChange, GitCommitError, RepoStatus } from '../types.ts';import type { GitCommitApi } from './api.ts';
 
@@ -37,8 +35,6 @@ export interface PanelProps extends PropsLocale<'gitCommitPanel'> {
   setStatus: (status: RepoStatus | null) => void;
   /** Selector hook over the client session list (global standard seat). */
   useSessions: SnapshotSelectorHook<SessionListState>;
-  /** Selector hook over the client workspace list (global standard seat). */
-  useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>;
 }
 
 const POLL_INTERVAL_MS = 20_000;
@@ -240,58 +236,36 @@ const ghostHover: CSSProperties = { background: 'var(--dsw-alias-interactive-bg-
 /** Fill swap for the primary action on hover. */
 const primaryHover: CSSProperties = { background: 'var(--dsw-alias-button-primary-hover)' };
 
-/** Deduplicate and order the candidate workspaces the panel may inspect. */function candidatesOf(
-  sessionCwds: readonly (string | undefined)[],
-  workspacePaths: readonly string[],
-): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const path of [...sessionCwds, ...workspacePaths]) {
-    if (path === undefined || path === '') continue;
-    const key = path.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(path);
-  }
-  return out;
-}
-
 /**
- * Stable identity of the candidate set: the workspace scan only restarts when
- * this changes, not on every unrelated session or workspace list mutation.
+ * The workspace of the conversation the main view is showing.
+ *
+ * DSH's own client surfaces identify the open conversation by its `mainView`
+ * retention — the shell retains exactly the Session it renders, blank ones
+ * included — so the panel reads that same fact instead of guessing from list
+ * order. A conversation switch therefore moves the pill with it, and no other
+ * workspace can ever take its place.
+ * @param state - current session list snapshot.
+ * @returns the conversation's directory, or null while no Session is retained.
  */
-function candidatesKey(candidates: readonly string[]): string {
-  return candidates.map((path) => path.toLowerCase()).join('\u0000');
-}
-
-/** Wait for a macrotask so each git probe yields to rendering. */
-function nextTick(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
+function conversationWorkspace(state: SessionListState): string | null {
+  for (const row of Object.values(state.byId)) {
+    if ((row.retainedBy.mainView ?? 0) > 0) return row.cwd ?? null;
+  }
+  return null;
 }
 
 /**
  * One occurrence of the floating commit panel.
  * @param props - composed slot props (locale seat + injected business face).
- * @returns the pill, the expanded card, or nothing while no workspace has changes.
+ * @returns the pill while the conversation's workspace has changes, otherwise nothing.
  */
 export function Panel(props: PanelProps): ReactElement | null {
-  const { t, git, useGitCommitStatus, setStatus, useSessions, useWorkspaces } = props;
+  const { t, git, useGitCommitStatus, setStatus, useSessions } = props;
 
   const status = useGitCommitStatus((current) => current ?? null);
-  const sessionCwds = useSessions(
-    (state) => state.ids.map((id) => state.byId[id]?.cwd),
-    sameArray,
-  );
-  const workspacePaths = useWorkspaces(
-    (snapshot) => snapshot.items.map((item) => item.path),
-    sameArray,
-  );
-
-  const candidates = useMemo(
-    () => candidatesOf(sessionCwds, workspacePaths),
-    [sessionCwds, workspacePaths],
-  );
-  const candidateKey = candidatesKey(candidates);
+  // The one workspace this panel is ever about: the directory the conversation
+  // in the main view sits in. Nothing else is a candidate.
+  const workspace = useSessions(conversationWorkspace);
 
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
@@ -337,11 +311,11 @@ export function Panel(props: PanelProps): ReactElement | null {
     );
   }, [error]);
 
-  const candidatesRef = useRef(candidates);
-  candidatesRef.current = candidates;
-  const statusRef = useRef(status);
-  statusRef.current = status;
+  const workspaceRef = useRef(workspace);
+  workspaceRef.current = workspace;
   const inFlightRef = useRef(false);
+  /** A scan request that arrived while one was running, so a switch is never dropped. */
+  const queuedRef = useRef(false);
   const lastScanRef = useRef(0);
   const mountedRef = useRef(true);
   useEffect(() => () => {
@@ -358,43 +332,41 @@ export function Panel(props: PanelProps): ReactElement | null {
   }, [git]);
 
   /**
-   * Pick the workspace to show: the first candidate with work-tree changes,
-   * preferring the ones an active session currently sits in.
+   * Probe the current conversation's workspace and publish what the pill should
+   * show. The status is re-read rather than reused: a clean tree (a commit made
+   * in a terminal, or a switched conversation) has to retire the pill.
+   *
+   * A request that arrives while a probe runs is remembered and served by that
+   * same call, so switching conversations never waits out the poll interval.
    */
   const refresh = useCallback(async (force: boolean): Promise<void> => {
-    if (inFlightRef.current) return;
+    if (inFlightRef.current) {
+      queuedRef.current = true;
+      return;
+    }
     const now = Date.now();
     if (!force && now - lastScanRef.current < SCAN_MIN_INTERVAL_MS) return;
     inFlightRef.current = true;
     try {
-      const current = statusRef.current;
-      if (current !== null) {
-        const stillChanged = await probe(current.workspace);
-        if (stillChanged !== null) {
-          setStatus(stillChanged);
-          return;
-        }
-      }
-      for (const candidate of candidatesRef.current) {
-        const found = await probe(candidate);
-        if (!mountedRef.current) return;
-        if (found !== null) {
-          setStatus(found);
-          return;
-        }
-        await nextTick();
-      }
-      setStatus(null);
+      const target = workspaceRef.current;
+      const found = target === null ? null : await probe(target);
+      if (!mountedRef.current) return;
+      setStatus(found);
     } finally {
       inFlightRef.current = false;
       lastScanRef.current = Date.now();
+      if (queuedRef.current) {
+        queuedRef.current = false;
+        void refresh(true);
+      }
     }
   }, [probe, setStatus]);
 
-  // Discovery: on mount, whenever the candidate set changes, and on tab focus.
+  // Discovery: on mount, whenever the conversation's workspace changes, and on
+  // tab focus.
   useEffect(() => {
     void refresh(true);
-  }, [candidateKey, refresh]);
+  }, [workspace, refresh]);
 
   useEffect(() => {
     const onFocus = (): void => { void refresh(false); };
@@ -700,16 +672,6 @@ export function Panel(props: PanelProps): ReactElement | null {
       </section>
     </div>
   );
-}
-
-/** Reference equality for the two projected string arrays. */
-function sameArray<T>(left: readonly T[], right: readonly T[]): boolean {
-  if (left === right) return true;
-  if (left.length !== right.length) return false;
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return false;
-  }
-  return true;
 }
 
 /** Dictionary key of the failure heading that belongs to one error code. */

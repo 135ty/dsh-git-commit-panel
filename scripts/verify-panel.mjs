@@ -55,6 +55,20 @@ function subjectOf() {
   }
 }
 
+/**
+ * Object id of the repository's current HEAD. A commit is detected by this and
+ * not by its subject: a drafted subject is free to repeat the previous one
+ * (the diff can be the same), which would make a subject comparison report a
+ * landed commit as missing.
+ */
+function headOf() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: workspace, encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
+
 const results = [];
 const check = (ok, label, extra = '') => {
   results.push({ ok, label, extra });
@@ -203,9 +217,9 @@ if (pillVisible) {
       || (await dialog.innerText()).includes('留空则由 AI 起草');
     check(hintShown, 'card explains that an empty message is drafted by the AI');
 
-    const before = subjectOf();
+    const before = headOf();
     await commitButton.evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    const committed = await waitForCommit(() => subjectOf() !== before, 120_000);
+    const committed = await waitForCommit(() => headOf() !== before, 120_000);
     const drafted = committed ? subjectOf() : '';
     check(committed, 'empty-box commit reached the repository', drafted);
     check(

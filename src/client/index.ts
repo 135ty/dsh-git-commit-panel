@@ -2,7 +2,8 @@
  * dsh-git-commit-panel browser half.
  *
  * One registration into the frame-wide `shell.overlay` seat: the floating
- * commit pill and its expanded commit card. The seat is additive and
+ * commit pill and its expanded commit card, both scoped to the workspace of the
+ * conversation the main view is showing. The seat is additive and
  * click-through, so the panel opts back into pointer events and never blocks
  * the application underneath.
  *
@@ -19,10 +20,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client';
 import type {} from '@deepseek-ai/dsh-client-locale/client';
 // Type-only: installs the `shell.overlay` declaration merge (ui-layout's AppFrame).
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client';
-// Type-only: installs the ctx.sessions object layer and the session standard seats.
+// Type-only: installs `ctx.sessions` and the session standard seats.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client';
-// Type-only: installs the ctx.workspaces face and the workspace standard seat.
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client';
 import type { HostObservable, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots';
 import type { RepoStatus } from '../types.ts';
 import { GitCommitApi } from './api.ts';
@@ -52,8 +51,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Services this half needs: the slot registry, the dictionary registry, and the client session/workspace lists. */
-export const inject = ['slots', 'locale', 'sessions', 'workspaces'];
+/** Services this half needs: the slot registry, the dictionary registry, and the client session list. */
+export const inject = ['slots', 'locale', 'sessions'];
 
 /**
  * Client plugin body: publish the status source, then register the panel into

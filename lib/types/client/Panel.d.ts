@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots';
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client';
-import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client';
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots';
 import type { RepoStatus } from '../types.ts';
 import type { GitCommitApi } from './api.ts';
@@ -17,12 +16,10 @@ export interface PanelProps extends PropsLocale<'gitCommitPanel'> {
     setStatus: (status: RepoStatus | null) => void;
     /** Selector hook over the client session list (global standard seat). */
     useSessions: SnapshotSelectorHook<SessionListState>;
-    /** Selector hook over the client workspace list (global standard seat). */
-    useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>;
 }
 /**
  * One occurrence of the floating commit panel.
  * @param props - composed slot props (locale seat + injected business face).
- * @returns the pill, the expanded card, or nothing while no workspace has changes.
+ * @returns the pill while the conversation's workspace has changes, otherwise nothing.
  */
 export declare function Panel(props: PanelProps): ReactElement | null;

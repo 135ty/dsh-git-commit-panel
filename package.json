@@ -32,7 +32,6 @@
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-renderer",
         "@deepseek-ai/dsh-client-ui-session",
-        "@deepseek-ai/dsh-client-ui-workspace",
         "@deepseek-ai/dsh-api-session-controller"
       ]
     }
@@ -56,6 +55,7 @@
     "check:bundle": "node scripts/check-bundle.mjs",
     "verify": "npm run typecheck && npm run build && npm run check:bundle",
     "verify:panel": "node scripts/verify-panel.mjs",
+    "verify:workspace": "node scripts/verify-workspace.mjs",
     "verify:generate": "node scripts/verify-generate.mjs",
     "verify:failure": "node scripts/verify-failure.mjs",
     "verify:theme": "node scripts/verify-theme.mjs",
