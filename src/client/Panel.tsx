@@ -53,7 +53,18 @@ const KIND_MARK: Record<FileChange['kind'], string> = {
 };
 
 /**
- * The panel's one seat: the frame's own bottom-right corner, inside the shell's
+ * Top offset of the panel's seat, below the frame's own chrome row. A floating
+ * capsule that a deployment happens to mount in the frame's top-right band
+ * occupies roughly 44–77px there, so 120px keeps this pill clear of that band
+ * whether or not any such plugin is installed: nothing here is measured, the
+ * band is simply left alone. `--dsh-frame-top-clearance` is the shell's own
+ * reserved top strip (zero in a browser tab, the title bar height in the
+ * desktop shell), so the seat moves with the frame exactly as the shell does.
+ */
+const PANEL_TOP_PX = 120;
+
+/**
+ * The panel's one seat: the frame's own top-right corner, inside the shell's
  * overlay layer. The position is a constant of this plugin — it is never
  * measured against, or derived from, any other plugin's DOM, so a deployment
  * that mounts no floating capsule of any kind still places the pill exactly
@@ -69,8 +80,8 @@ const KIND_MARK: Record<FileChange['kind'], string> = {
  */
 const panelRootBase: CSSProperties = {
   position: 'absolute',
-  right: 20,
-  bottom: 20,
+  top: `calc(var(--dsh-frame-top-clearance, 0px) + ${PANEL_TOP_PX}px)`,
+  right: 14,
   pointerEvents: 'auto',
 };
 
