@@ -53,15 +53,21 @@ const KIND_MARK: Record<FileChange['kind'], string> = {
 };
 
 /**
- * Top offset of the panel's seat, below the frame's own chrome row. A floating
- * capsule that a deployment happens to mount in the frame's top-right band
- * occupies roughly 44–77px there, so 120px keeps this pill clear of that band
- * whether or not any such plugin is installed: nothing here is measured, the
- * band is simply left alone. `--dsh-frame-top-clearance` is the shell's own
- * reserved top strip (zero in a browser tab, the title bar height in the
- * desktop shell), so the seat moves with the frame exactly as the shell does.
+ * Top offset of the panel's seat, measured down the frame's right edge. It is a
+ * constant of this plugin: nothing is measured at runtime.
+ *
+ * The number clears the band a floating status capsule occupies in the frame's
+ * top-right corner. Measured on a 1920-wide window that band runs 82–130px,
+ * because such a capsule wraps its label onto two lines there (33px tall when
+ * it fits on one), so 144 leaves a 14px gap under the widest case observed
+ * rather than the 8px a taller capsule would swallow. A deployment with no such
+ * plugin still seats the pill in the frame's upper right.
+ *
+ * `--dsh-frame-top-clearance` is the shell's own reserved top strip (zero in a
+ * browser tab, the title bar height in the desktop shell), so the seat moves
+ * with the frame exactly as the shell does.
  */
-const PANEL_TOP_PX = 120;
+const PANEL_TOP_PX = 144;
 
 /**
  * The panel's one seat: the frame's own top-right corner, inside the shell's
