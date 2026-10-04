@@ -1,169 +1,41 @@
 # dsh-git-commit-panel
 
-English · [中文](README.zh.md)
+中文 · [English](README.en.md)
 
-A DSH web GUI plugin that shows a **floating commit window** in any workspace whose git repository has work-tree changes. The pill shows the branch and the pending count; clicking it opens a commit card where the message is either written by hand or drafted by the deployment's own model, and then committed — optionally with an immediate `git push`.
+一个 DSH Web GUI 插件：工作区里的 git 仓库有未提交改动时，页面浮出一枚小胶囊（显示当前分支和待提交数量），点开就是提交卡片——提交信息可以手写，也可以让 AI 起草，然后提交，或者提交后立即推送。
 
-The behaviour mirrors ZCode's git tool: same trigger (unstaged changes), same message rules (one Conventional Commit subject, type and scope in English, subject under 72 characters), same two actions.
+行为对齐 ZCode 的 git 工具：触发条件、提交信息规则（首行是 Conventional Commit，type 与 scope 用英文，主题不超过 72 字符）和两个动作都一致。
 
-![Floating commit pill and open commit card](artifacts/panel-open.png)
+## 它做什么
 
-## What it does
+- **只在需要时出现。** 工作区干净时完全不占界面，也不用先打开某个标签页或面板。
+- **自己挑工作区。** 优先选有会话正在工作的目录，其次回退到全部已注册工作区。
+- **提交信息可以手写，也可以让 AI 起草。** 点「AI 生成」由部署的默认模型（不跟随当前会话所选的模型）根据分支、变更文件摘要和 diff 片段起草；也可以补一句说明，告诉它 diff 里看不出来的意图。
+- **留空点提交不算错。** 什么都不填直接点「提交」或「提交并推送」，会先起草信息再提交。
+- **提交，或提交并推送。** 「提交前暂存全部更改」决定是整体暂存（含未跟踪文件）还是只提交索引里已有的内容；缺少上游时会给出可操作的报错。
+- **只在本机、只对已注册工作区生效。** 浏览器不能指定任意目录跑 git，路由也仅限本机访问。
+- **中英双语**，跟随 GUI 语言；浅色、深色都跟随界面主题。
 
-- **Appears only when it matters.** The panel is mounted in the frame-wide `shell.overlay` seat and renders nothing until a registered workspace inside a git repository reports work-tree changes. A clean tree leaves no UI at all.
-- **Picks the workspace for you.** It prefers the directories an active session is working in, then falls back to every registered workspace, and inspects candidates cheapest-first (`git status` only; diffs are fetched on demand).
-- **Drafts the message with AI.** `Generate with AI` asks the host half for a Conventional Commit message built from the branch, the changed-file summary, bounded diff excerpts, and an optional free-text hint.
-- **An empty box is not an error.** Press `Commit` or `Commit & Push` with nothing typed and the AI drafts the message first; that drafted text is what gets committed. The card says so under the message box, and the box shows which model drafted it.
-- **Commits, or commits and pushes.** `Stage all changes before committing` controls whether the work tree is staged wholesale (including untracked files) or only what is already in the index. `Commit & Push` pushes to the configured upstream and reports a missing upstream as an actionable error.
-- **Speaks both languages.** English and Chinese dictionaries ship with the plugin and follow the GUI locale.
+## 安装
 
-### Which model drafts the message
-
-The deployment's default model (`agent-default-model`, e.g. `deepseek-official/deepseek-flash`) — **not** the model currently selected in the conversation you happen to be looking at. That choice is deliberate: the host half has no session context, so it always has a usable route, and drafting a commit subject is not worth changing the model your conversation runs on. Change it by editing the deployment default in the profile patch:
-
-```yaml
-- id: agent-default-model
-  name: "@deepseek-ai/dsh-agent-default-model"
-  config:
-    provider: deepseek-official
-    model: deepseek-flash
-```
-
-The generate route also accepts an optional `{ provider, model }` pair and honours it when an adapter is registered for that provider, falling back to the default otherwise — the hook for a future per-session follow mode. The panel itself does not send it today, because a frame-wide overlay has no reliable notion of "the current session".
-
-## Install
-
-The plugin is a normal DSH bundle with a host half and a browser half.
+要求 DeepSeek Harness `0.2.0-rc.1` 及以上，Host 的 `PATH` 中有 `git`，构建需要 Node.js 24+。
 
 ```sh
-# local checkout (a link dependency; edits to lib/ are live after a reload)
+# 本地目录
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
 
-# from a git host (requires lib/ to be committed)
+# 从 git 仓库安装（需要已提交 lib/）
 dsh plugin --profile web add github:<owner>/<repo>
 ```
 
-Then restart `dsh web`. Bundle installation writes the profile manifest and its patch layer, so a running profile has to be stopped first; a rebuild of `lib/client.js` alone is picked up by the client HMR receiver without a restart.
-
-For throwaway testing without touching your profile, mount it with an overlay instead:
+之后重启 `dsh web`。发行到 npm 后也可以直接装：
 
 ```sh
-dsh web --patch ./plugin.patch.yml --port 3199 --no-open
+dsh plugin --profile web add dsh-git-commit-panel
 ```
 
-with
+（当前尚未发布到 npm，用上面的源码方式。）
 
-```yaml
-- insert:
-    - id: git-commit-panel
-      name: 'E:/path/to/dsh-git-commit-panel/lib/index.js'
-```
+## 许可
 
-### When the model call fails
-
-A generation failure is a first-class outcome, never a silent one:
-
-- the card keeps its state and shows the failure under the buttons, headed **Could not generate a commit message** (not "commit failed") and carrying `[code]` plus the message;
-- the provider's own sentence and request id are shown as the detail line, so an auth or quota problem is diagnosable from the panel — e.g. `[model-failed] The model call failed. Authentication Fails, Your api key: ****test is invalid (request_id: …)`;
-- the same line is mirrored to the browser console, so a diagnosis does not depend on reproducing the click;
-- an empty message box that fails to draft **commits nothing**: no staging happens, the box stays empty, and the work tree is untouched — retry in place.
-
-Codes that can come back from the generate route: `model-unavailable` (no default model configured), `model-failed` (`detail` carries the provider cause), `nothing-to-commit`, `not-a-repository`, `workspace-unknown`, `bad-request`, `internal`.
-
-![Failure surfaced in the commit card](artifacts/failure-commit.png)
-
-## How it is built
-
-| Layer | Artifact | What it owns |
-|---|---|---|
-| Node half | `lib/index.js` | The `/git-commit/*` routes, the workspace gate, every git invocation, and the model call. |
-| Browser half | `lib/client.js` | One `shell.overlay` registration: the pill and the commit card. |
-| Types | `lib/types/**` | Declarations for embedders. |
-
-`npm run build` runs two independent steps: `scripts/build.mjs` bundles the browser half as a classic script registering a `window.__ModuleLoader__` factory (platform modules like `react` stay external, everything else is inlined), and `scripts/build-host.mjs` bundles the node half as one ESM entry with all packages external.
-
-```sh
-npm install
-npm run verify      # typecheck + build + client-bundle contract check
-```
-
-`npm run check:bundle` fails the build when `lib/client.js` is not a ModuleLoader factory, when it requires anything outside the frozen browser module table, or when the manifest stops declaring `dsh.client.platform: web`.
-
-## Wire API
-
-Every route is `POST`, JSON in, `{ ok: true, value }` or `{ ok: false, error: { code, message, detail? } }` out.
-
-| Route | Payload | Result |
-|---|---|---|
-| `/git-commit/status` | `{ path }` | `RepoStatus` or `null` (not a repository) |
-| `/git-commit/diff` | `{ path, paths?, staged?, maxBytes? }` | `{ patch, truncated, bytes }` |
-| `/git-commit/generate` | `{ path, paths?, staged?, locale?, hint?, provider?, model? }` | `{ message, provider, model }` |
-| `/git-commit/commit` | `{ path, message, stageAll, push? }` | `{ commit, subject, branch, pushed, pushDetail? }` |
-
-Error codes: `bad-request`, `workspace-unknown`, `not-a-repository`, `git-failed`, `nothing-to-commit`, `model-unavailable`, `model-failed`, `push-failed`, `internal`.
-
-## Theming
-
-The panel carries **no design of its own**. Every colour, radius, shadow, and
-font comes from the theme's own token table (`dsh-client-ui-theme`), composed
-the way the shipped surfaces compose it — so a stock deployment with no
-custom styling gets a panel that belongs to it, in light, dark, and system
-mode alike:
-
-| Element | Tokens |
-|---|---|
-| Card surface | `bg-layer-2` + `elevation-prominent` + `radius-panel` (the settings panel's composition) |
-| Floating pill | `button-floating-fill` + `border-l2` + `elevation-panel` (the shipped floating buttons) |
-| Primary action | `button-primary-fill` / `-hover` + `label-primary-foreground` (the shipped primary button) |
-| Secondary action | transparent + `border-l4` + `interactive-bg-hover` on hover (the shipped chip) |
-| Inputs | `bg-layer-1` + `border-l4` + `radius-lg` |
-| Secondary copy | `label-caption` + `font-xxs-12`; body copy `font-xs-13` |
-| Error text | `state-error-primary` (the token all 103 shipped error messages use) |
-
-There are no literal colours, no `prefers-color-scheme` branch, and no theme
-observer: the tokens resolve at paint time. `npm run verify:theme` asserts
-exactly that — it renders the pill and card in both modes and checks that each
-surface resolves to a themed value (and to a *different* one in dark mode),
-which is what catches a token typo that would otherwise fall back silently.
-
-## Security boundary
-
-The browser never names a directory it is allowed to run git in freely. A request path is resolved with `fs.realpath` and then required to **equal a registered workspace path**; a subdirectory, a symlink escape, or any directory outside the registry is refused with `workspace-unknown`. On top of that the routes are loopback-only (socket address, `Host` header, and same-origin browser markers) and require a JSON content-type, so a cross-site form cannot drive a commit. There is no user-supplied remote, ref, or git option: the service only runs fixed verbs against the gated repository.
-
-## Configuration
-
-The plugin has no settings of its own; it follows the deployment's default model (`agent-default-model`) for AI messages. The routes are the only tuning surface, and the client passes `stageAll` explicitly.
-
-## Development
-
-```
-src/
-  types.ts            wire domain + inbound/outbound guards
-  index.ts            host half entry (service + routes)
-  host/git.ts         GitRunner, porcelain v2 parser, status/diff readers
-  host/service.ts     workspace gate, git verbs, prompt + model call
-  host/routes.ts      /git-commit/* route family
-  client/index.ts     browser half entry (slot registration, status source)
-  client/Panel.tsx    the pill and the commit card
-  client/api.ts       typed wire client
-  client/locales.ts   en/zh copy
-```
-
-`scripts/verify-panel.mjs` and `scripts/verify-generate.mjs` drive a real Chromium against a running instance and write screenshots plus a JSON report into `artifacts/`. The panel harness also exercises the trigger and drafting contracts itself: a clean work tree renders no window, a seeded change brings it back, an empty message box still commits (drafting first), and the explicit generate action fills the box.
-
-```sh
-node scripts/verify-panel.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
-node scripts/verify-generate.mjs 'http://127.0.0.1:3199/?token=<token>'
-node scripts/verify-theme.mjs 'http://127.0.0.1:3199/?token=<token>' E:/path/to/workspace
-node scripts/verify-failure.mjs        # boots its own instance with a deliberately invalid key
-```
-
-Both need `playwright-core` (already a dev dependency) and a Chromium-based browser; the panel harness additionally needs `git` on `PATH` for its ground-truth reads. `verify-failure.mjs` is self-contained: it starts a DSH instance against a scratch home whose provider credential is invalid, so no working credential is spent.
-
-## Model experience
-
-The host half adds **no** model-facing surface: no tool, no command, and no prompt fragment. Its only model interaction is the explicit, user-initiated one-shot call that drafts a commit message, which sends the branch name, the changed-file summary, and bounded diff excerpts of the workspace the user is already committing.
-
-## License
-
-MIT.
+MIT。
