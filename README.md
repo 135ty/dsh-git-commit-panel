@@ -51,7 +51,7 @@ npm run pack:release # 打出 Release 用的预编译 tgz，并打印上传命�
 
 `lib/` 是构建产物且已提交：从 GitHub 源安装时，即使仓库里的构建脚本没跑，插件也能正常加载。
 
-浏览器验证脚本都驱动真实 Chromium（`playwright-core` 已在 devDependencies），需要一个带 token 的运行中 GUI；产物写在 `artifacts/`（截图与 `report.json` 已随仓库提交）：
+浏览器验证脚本都驱动真实 Chromium（`playwright-core` 已在 devDependencies），需要一个带 token 的运行中 GUI；产物写在 `artifacts/`：
 
 ```sh
 node scripts/verify-panel.mjs <base-url-with-token> [期望的未提交文件数]

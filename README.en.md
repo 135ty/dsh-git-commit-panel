@@ -51,7 +51,7 @@ npm run pack:release # pack the prebuilt release tarball and print the upload co
 
 `lib/` is a build artifact and is committed: a GitHub-source install loads fine even when the repository's build script never ran.
 
-The browser harnesses drive a real Chromium (`playwright-core` is a dev dependency) against a running GUI, so they need a tokenised base URL; their artifacts land in `artifacts/` (screenshots and `report.json`, both committed):
+The browser harnesses drive a real Chromium (`playwright-core` is a dev dependency) against a running GUI, so they need a tokenised base URL; their artifacts land in `artifacts/`:
 
 ```sh
 node scripts/verify-panel.mjs <base-url-with-token> [expected unstaged count]
