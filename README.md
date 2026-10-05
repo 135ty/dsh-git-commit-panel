@@ -18,23 +18,50 @@
 
 ## 安装
 
-要求 DeepSeek Harness `0.2.0-rc.1` 及以上，Host 的 `PATH` 中有 `git`，构建需要 Node.js 24+。
+要求 DeepSeek Harness `0.2.0-rc.1` 及以上，Host 的 `PATH` 中有 `git`。
+
+本插件不发布 npm 包，只从 GitHub 分发，下列方式选一种：
 
 ```sh
-# 本地目录
+# 1) 预编译的 Release 包（推荐：不下载整个仓库，也不在本地构建）
+dsh plugin --profile web add https://github.com/135ty/dsh-git-commit-panel/releases/download/v0.1.0/dsh-git-commit-panel-0.1.0.tgz
+
+# 2) 直接从 GitHub 源安装（下载整个仓库并在本地构建，需要 Node.js 24+）
+dsh plugin --profile web add github:135ty/dsh-git-commit-panel
+
+# 3) 固定到某个 tag 或 commit
+dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.0
+
+# 4) 本地目录（开发用；link 依赖，重新构建后刷新页面即生效）
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
-
-# 从 git 仓库安装（需要已提交 lib/）
-dsh plugin --profile web add github:<owner>/<repo>
 ```
 
-之后重启 `dsh web`。发行到 npm 后也可以直接装：
+之后重启 `dsh web`。
+
+> **只在 `dsh web` / CLI 上安装。** DSH Desktop 客户端的安装边界只接受已发布到 npm 的 `name@x.y.z`，GitHub 源的插件在那边装不上——这是客户端的限制，不是插件的问题。
+
+## 开发与验证
 
 ```sh
-dsh plugin --profile web add dsh-git-commit-panel
+npm install          # 依赖里含类型检查所需的 @deepseek-ai/dsh-* 声明
+npm run verify       # typecheck + 构建 + 产物契约检查
+npm run build        # 只构建：client（esbuild）→ lib/client.js，host（tsc 声明 + esbuild）→ lib/index.js
+npm run pack:release # 打出 Release 用的预编译 tgz，并打印上传命令与资产地址
 ```
 
-（当前尚未发布到 npm，用上面的源码方式。）
+`lib/` 是构建产物且已提交：从 GitHub 源安装时，即使仓库里的构建脚本没跑，插件也能正常加载。
+
+浏览器验证脚本都驱动真实 Chromium（`playwright-core` 已在 devDependencies），需要一个带 token 的运行中 GUI；产物写在 `artifacts/`（截图与 `report.json` 已随仓库提交）：
+
+```sh
+node scripts/verify-panel.mjs <base-url-with-token> [期望的未提交文件数]
+node scripts/verify-workspace.mjs <base-url-with-token> <对话所在工作区>
+node scripts/verify-theme.mjs <base-url-with-token> <工作区路径>
+node scripts/verify-generate.mjs <base-url-with-token>   # 需要部署有可用的默认模型
+node scripts/verify-failure.mjs [base-url]               # 自带凭据无效的临时 DSH_HOME
+```
+
+只有 `verify-generate.mjs` 会真正调用模型；`verify-failure.mjs` 用的是故意写坏的假 key（`sk-invalid-key-for-failure-path-test`），仓库里没有任何真实凭据。
 
 ## 许可
 

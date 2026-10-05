@@ -1,8 +1,26 @@
 {
   "name": "dsh-git-commit-panel",
   "version": "0.1.0",
-  "private": false,
   "description": "DSH web GUI plugin: a floating commit panel that appears when a workspace git repository has unstaged changes, with a hand-written or AI-generated commit message and commit / commit-and-push actions.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek",
+    "harness",
+    "git",
+    "commit",
+    "conventional-commit",
+    "web-gui"
+  ],
+  "author": "135ty",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/135ty/dsh-git-commit-panel.git"
+  },
+  "homepage": "https://github.com/135ty/dsh-git-commit-panel#readme",
+  "bugs": {
+    "url": "https://github.com/135ty/dsh-git-commit-panel/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=24.0.0",
@@ -59,12 +77,37 @@
     "verify:generate": "node scripts/verify-generate.mjs",
     "verify:failure": "node scripts/verify-failure.mjs",
     "verify:theme": "node scripts/verify-theme.mjs",
-    "prepare": "node scripts/build.mjs && node scripts/build-host.mjs"
+    "pack:release": "node scripts/pack-release.mjs",
+    "prepare": "npm run build"
   },
   "peerDependencies": {
     "react": "^18.2.0"
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/dsh-agent-default-model": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-job-controller": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-remotes": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-session-controller": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-terminal-controller": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-workspace-controller": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-workspace-files": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-locale": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-store": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-layout": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-session": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-cordis-host-runner": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-host-plugin-inventory": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-jobs": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-plugin-manager": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-session-reference": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-subprocess": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-workspace": "^0.2.0-rc.2",
     "@types/node": "^22.20.0",
     "@types/react": "^18.3.1",
     "esbuild": "^0.25.0",

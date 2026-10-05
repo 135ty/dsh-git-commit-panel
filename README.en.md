@@ -18,23 +18,50 @@ The behaviour mirrors ZCode's git tool: same trigger, same message rules (a Conv
 
 ## Install
 
-Requires DeepSeek Harness `0.2.0-rc.1` or newer, `git` on the host `PATH`, and Node.js 24+ to build.
+Requires DeepSeek Harness `0.2.0-rc.1` or newer and `git` on the host `PATH`.
+
+The plugin is not published to npm; it ships from GitHub only. Pick one:
 
 ```sh
-# local checkout
+# 1) prebuilt release asset (recommended: no full-repo download, no local build)
+dsh plugin --profile web add https://github.com/135ty/dsh-git-commit-panel/releases/download/v0.1.0/dsh-git-commit-panel-0.1.0.tgz
+
+# 2) straight from the GitHub source (downloads the whole repo and builds locally; needs Node.js 24+)
+dsh plugin --profile web add github:135ty/dsh-git-commit-panel
+
+# 3) pinned to a tag or commit
+dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.0
+
+# 4) a local checkout (development: a link dependency, live after a rebuild and a reload)
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
-
-# from a git host (requires lib/ to be committed)
-dsh plugin --profile web add github:<owner>/<repo>
 ```
 
-Then restart `dsh web`. Once it is on npm, this also works:
+Then restart `dsh web`.
+
+> **Install it from `dsh web` / the CLI only.** The DSH Desktop client's install boundary accepts nothing but `name@x.y.z` from npm, so a GitHub-sourced plugin cannot be installed there — a limit of that client, not of this plugin.
+
+## Development and verification
 
 ```sh
-dsh plugin --profile web add dsh-git-commit-panel
+npm install          # brings the @deepseek-ai/dsh-* declarations typecheck resolves against
+npm run verify       # typecheck + build + artifact contract check
+npm run build        # build only: client (esbuild) -> lib/client.js, host (tsc declarations + esbuild) -> lib/index.js
+npm run pack:release # pack the prebuilt release tarball and print the upload commands and asset URL
 ```
 
-(The package is not published to npm yet — use one of the source installs above.)
+`lib/` is a build artifact and is committed: a GitHub-source install loads fine even when the repository's build script never ran.
+
+The browser harnesses drive a real Chromium (`playwright-core` is a dev dependency) against a running GUI, so they need a tokenised base URL; their artifacts land in `artifacts/` (screenshots and `report.json`, both committed):
+
+```sh
+node scripts/verify-panel.mjs <base-url-with-token> [expected unstaged count]
+node scripts/verify-workspace.mjs <base-url-with-token> <conversation workspace>
+node scripts/verify-theme.mjs <base-url-with-token> <workspace path>
+node scripts/verify-generate.mjs <base-url-with-token>   # needs a working default model
+node scripts/verify-failure.mjs [base-url]               # brings its own scratch DSH_HOME
+```
+
+Only `verify-generate.mjs` spends a real model call; `verify-failure.mjs` boots against a deliberately invalid key (`sk-invalid-key-for-failure-path-test`). No real credential lives in this repository.
 
 ## License
 

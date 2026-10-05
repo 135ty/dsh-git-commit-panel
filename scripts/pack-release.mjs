@@ -1,0 +1,86 @@
+/**
+ * Release packaging for GitHub-only distribution.
+ *
+ * This plugin is not published to npm, so the prebuilt tarball is the fast
+ * install path: a GitHub Release asset of this repository, which pnpm installs
+ * as a plain remote tarball — no repository download, no build script on the
+ * user's machine. `npm pack` runs `prepare` first, so the tarball always carries
+ * a freshly built `lib/` rather than whatever is committed.
+ *
+ * The tarball must belong to this repository's own release: the market binds a
+ * catalog entry's `tarball` field to the entry's `owner/repo` and rejects an
+ * asset hosted under someone else's.
+ *
+ * Usage: npm run pack:release
+ *
+ * @module dsh-git-commit-panel/scripts/pack-release
+ */
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+
+/** Entries without which the tarball would install but never load. */
+const REQUIRED = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/client.js'];
+
+/**
+ * Run `npm pack --json` through the npm entry that is already running this
+ * script, so no shell is interposed (and no argument is re-quoted by one). A
+ * direct `node scripts/pack-release.mjs` falls back to the platform's command.
+ */
+function pack() {
+    const entry = process.env.npm_execpath;
+    const options = { cwd: root, encoding: 'utf8' };
+    if (entry !== undefined && entry !== '') {
+        return spawnSync(process.execPath, [entry, 'pack', '--json'], options);
+    }
+    return process.platform === 'win32'
+        ? spawnSync('cmd.exe', ['/d', '/s', '/c', 'npm pack --json'], options)
+        : spawnSync('npm', ['pack', '--json'], options);
+}
+
+const packed = pack();
+if (packed.status !== 0) {
+    process.stderr.write(packed.stderr || packed.stdout || 'npm pack failed\n');
+    process.exit(packed.status ?? 1);
+}
+
+// `prepare` writes to stdout ahead of the report, so the JSON is sliced out by
+// its own shape: the object that carries `filename`. npm has shipped this
+// report both as a one-element array and as an object keyed by package name.
+const stdout = packed.stdout ?? '';
+const filenameAt = stdout.indexOf('"filename"');
+const reportAt = filenameAt === -1 ? -1 : stdout.lastIndexOf('\n{', filenameAt);
+if (reportAt === -1) {
+    process.stderr.write(`pack:release — npm pack printed no JSON report:\n${stdout}\n`);
+    process.exit(1);
+}
+const report = JSON.parse(stdout.slice(reportAt + 1));
+const artifact = Array.isArray(report) ? report[0] : Object.values(report)[0];
+const names = new Set(artifact.files.map(file => file.path));
+const missing = REQUIRED.filter(name => !names.has(name));
+if (missing.length > 0) {
+    console.error(`pack:release — ${artifact.filename} is missing ${missing.join(', ')}; not a usable release.`);
+    process.exit(1);
+}
+
+const tag = `v${manifest.version}`;
+const repo = /github\.com[/:]([^/]+\/[^/#]+?)(?:\.git)?$/i.exec(manifest.repository?.url ?? '')?.[1] ?? null;
+
+console.log(`\n${artifact.filename} — ${names.size} files, ${(artifact.size / 1024).toFixed(1)} KiB packed\n`);
+if (repo === null) {
+    console.log('package.json declares no GitHub repository URL: upload the tarball to a release by hand.');
+    process.exit(0);
+}
+console.log(`Publish it as an asset of this repository's own release:
+
+  git tag ${tag} && git push origin ${tag}
+  gh release create ${tag} ${artifact.filename} --title ${tag} --generate-notes
+
+Then the install target, and the market entry's optional \`tarball\` field, is:
+
+  https://github.com/${repo}/releases/download/${tag}/${artifact.filename}
+`);

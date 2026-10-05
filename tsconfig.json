@@ -20,24 +20,7 @@
     "noImplicitOverride": true,
     "skipLibCheck": true,
     "noEmitOnError": true,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@deepseek-ai/cordis": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/cordis/lib/types/index.d.ts"],
-      "@deepseek-ai/schemastery": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/schemastery/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-host-webserver": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-host-webserver/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-subprocess": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-subprocess/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-workspace": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-llm": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-llm/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-agent-default-model": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-agent-default-model/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-session": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-session/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-client-ui-slots": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-slots/lib/types/index.d.ts"],
-      "@deepseek-ai/dsh-client-ui-renderer/client": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-renderer/lib/types/client/index.d.ts"],
-      "@deepseek-ai/dsh-client-ui-layout/client": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/types/client/index.d.ts"],
-      "@deepseek-ai/dsh-client-locale/client": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-locale/lib/types/client/index.d.ts"],
-      "@deepseek-ai/dsh-client-ui-session/client": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-session/lib/types/client/index.d.ts"],
-      "@deepseek-ai/dsh-api-session-controller/client": ["D:/npm/node_global/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-api-session-controller/lib/types/client/index.d.ts"]
-    }
+    "types": ["node"]
   },
   "include": ["src"],
   "exclude": ["lib", "node_modules"]
