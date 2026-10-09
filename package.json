@@ -63,6 +63,8 @@
     "locale/*.json",
     "src",
     "scripts",
+    "assets/*.png",
+    "screenshots.json",
     "README.md",
     "README.en.md",
     "LICENSE"

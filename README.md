@@ -6,6 +6,8 @@
 
 行为对齐 ZCode 的 git 工具：触发条件、提交信息规则（首行是 Conventional Commit，type 与 scope 用英文，主题不超过 72 字符）和两个动作都一致。
 
+![提交卡片](assets/commit-panel.png)
+
 ## 它做什么
 
 - **只在需要时出现。** 工作区干净时完全不占界面，也不用先打开某个标签页或面板。

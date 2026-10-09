@@ -6,6 +6,8 @@ A DSH web GUI plugin: when the git repository of the current conversation's dire
 
 The behaviour mirrors ZCode's git tool: same trigger, same message rules (a Conventional Commit subject, type and scope in English, subject under 72 characters), same two actions.
 
+![The commit card](assets/commit-panel.png)
+
 ## What it does
 
 - **Appears only when it matters.** A clean work tree leaves no UI at all, and you never have to open a tab or a panel first.
