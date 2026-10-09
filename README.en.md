@@ -40,6 +40,18 @@ Then restart `dsh web`.
 
 > **Install it from `dsh web` / the CLI only.** The DSH Desktop client's install boundary accepts nothing but `name@x.y.z` from npm, so a GitHub-sourced plugin cannot be installed there — a limit of that client, not of this plugin.
 
+### A GitHub-source install needs one build approval
+
+Options 2 and 3 install **sources**, and pnpm will not run a dependency's `prepare` script until it is allowed, so the first `add` fails and prints the names that need a decision. Put both into that profile's `pnpm-workspace.yaml` and re-run `add`:
+
+```yaml
+allowBuilds:
+  dsh-git-commit-panel: true   # this plugin's prepare: tsc + esbuild
+  esbuild: true                # the esbuild prepare uses needs its platform binary
+```
+
+That is why option 1 is the recommended one: the tarball already carries a built `lib/`, so nothing runs a build script on the user's machine and the approval is not needed. Pin your version with 2 or 3 (`#v0.1.0` or `#<sha>`) — otherwise a later `push` can change what an installed plugin runs without telling anyone.
+
 ## Development and verification
 
 ```sh
@@ -50,6 +62,8 @@ npm run pack:release # pack the prebuilt release tarball and print the upload co
 ```
 
 `lib/` is a build artifact and is committed: a GitHub-source install loads fine even when the repository's build script never ran.
+
+Both halves bundle every `@deepseek-ai/*` import away — the host half runs on `node:fs`/`node:path` alone and the browser half requires only `react`, which the harness provides — so nothing has to be resolved at install time.
 
 The browser harnesses drive a real Chromium (`playwright-core` is a dev dependency) against a running GUI, so they need a tokenised base URL; their artifacts land in `artifacts/`:
 
@@ -62,6 +76,12 @@ node scripts/verify-failure.mjs [base-url]               # brings its own scratc
 ```
 
 Only `verify-generate.mjs` spends a real model call; `verify-failure.mjs` boots against a deliberately invalid key (`sk-invalid-key-for-failure-path-test`). No real credential lives in this repository.
+
+`verify-pack.mjs` needs no GUI: it exercises only the npm-report reader `pack:release` depends on.
+
+```sh
+npm run verify:pack
+```
 
 ## License
 

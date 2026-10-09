@@ -36,9 +36,21 @@ dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.0
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
 ```
 
-之后重启 `dsh web`。
+然后重启 `dsh web`。
 
 > **只在 `dsh web` / CLI 上安装。** DSH Desktop 客户端的安装边界只接受已发布到 npm 的 `name@x.y.z`，GitHub 源的插件在那边装不上——这是客户端的限制，不是插件的问题。
+
+### 从 GitHub 源安装需要一次构建授权
+
+方式②③ 装的是**源码**，pnpm 出于安全不会自动跑依赖的 `prepare` 脚本，所以第一次 `add` 会失败并打印需要授权的包名。把那两个名字写进该 profile 的 `pnpm-workspace.yaml` 再重跑 `add` 即可：
+
+```yaml
+allowBuilds:
+  dsh-git-commit-panel: true   # 本插件的 prepare：tsc + esbuild
+  esbuild: true                # prepare 用到的 esbuild 需要装平台二进制
+```
+
+这就是方式① 推荐的原因：tarball 里已经带构建好的 `lib/`，用户机器上一个构建脚本都不跑，也就不需要这条授权。要钉住版本就直接用②③（`#v0.1.0` 或 `#<sha>`），否则一次 `push` 就可能让已经装好的插件在没有提示的情况下换了内容。
 
 ## 开发与验证
 
@@ -51,6 +63,8 @@ npm run pack:release # 打出 Release 用的预编译 tgz，并打印上传命�
 
 `lib/` 是构建产物且已提交：从 GitHub 源安装时，即使仓库里的构建脚本没跑，插件也能正常加载。
 
+两个半边都把 `@deepseek-ai/*` 的 import 打包掉了——host 半边只依赖 `node:fs`/`node:path`，浏览器半边只 require `react`（由 harness 提供）——所以安装时没有东西需要解析。
+
 浏览器验证脚本都驱动真实 Chromium（`playwright-core` 已在 devDependencies），需要一个带 token 的运行中 GUI；产物写在 `artifacts/`：
 
 ```sh
@@ -62,6 +76,12 @@ node scripts/verify-failure.mjs [base-url]               # 自带凭据无效的
 ```
 
 只有 `verify-generate.mjs` 会真正调用模型；`verify-failure.mjs` 用的是故意写坏的假 key（`sk-invalid-key-for-failure-path-test`），仓库里没有任何真实凭据。
+
+`verify-pack.mjs` 不需要 GUI，它只测 `pack:release` 读 npm 报告的那段逻辑：
+
+```sh
+npm run verify:pack
+```
 
 ## 许可
 
