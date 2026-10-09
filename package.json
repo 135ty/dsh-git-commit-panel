@@ -37,7 +37,8 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
   },
   "dsh": {
     "manifestVersion": 1,
@@ -59,6 +60,7 @@
     "lib/**/*.map",
     "lib/**/*.d.ts",
     "cordis.patch.yml",
+    "locale/*.json",
     "src",
     "scripts",
     "README.md",
