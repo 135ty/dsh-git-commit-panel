@@ -78,6 +78,7 @@
     "verify:workspace": "node scripts/verify-workspace.mjs",
     "verify:generate": "node scripts/verify-generate.mjs",
     "verify:failure": "node scripts/verify-failure.mjs",
+  "verify:pack": "node scripts/verify-pack.mjs",
     "verify:theme": "node scripts/verify-theme.mjs",
     "pack:release": "node scripts/pack-release.mjs",
     "prepare": "npm run build"
