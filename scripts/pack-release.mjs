@@ -20,6 +20,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseReport } from './lib/npm-pack-report.mjs';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
@@ -48,18 +50,22 @@ if (packed.status !== 0) {
     process.exit(packed.status ?? 1);
 }
 
-// `prepare` writes to stdout ahead of the report, so the JSON is sliced out by
-// its own shape: the object that carries `filename`. npm has shipped this
-// report both as a one-element array and as an object keyed by package name.
+// `prepare` writes to stdout ahead of the report, so it is parsed out by shape.
+// See parseReport for why no fixed offset can be used.
 const stdout = packed.stdout ?? '';
-const filenameAt = stdout.indexOf('"filename"');
-const reportAt = filenameAt === -1 ? -1 : stdout.lastIndexOf('\n{', filenameAt);
-if (reportAt === -1) {
+const report = parseReport(stdout);
+if (report === null) {
     process.stderr.write(`pack:release — npm pack printed no JSON report:\n${stdout}\n`);
     process.exit(1);
 }
-const report = JSON.parse(stdout.slice(reportAt + 1));
-const artifact = Array.isArray(report) ? report[0] : Object.values(report)[0];
+const artifacts = Array.isArray(report) ? report : Object.values(report);
+const artifact = artifacts.find(
+    entry => Array.isArray(entry?.files) && typeof entry?.filename === 'string',
+);
+if (artifact === undefined) {
+    process.stderr.write('pack:release — npm pack reported no tarball.\n');
+    process.exit(1);
+}
 const names = new Set(artifact.files.map(file => file.path));
 const missing = REQUIRED.filter(name => !names.has(name));
 if (missing.length > 0) {
