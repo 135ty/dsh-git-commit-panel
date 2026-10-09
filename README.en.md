@@ -22,19 +22,24 @@ The behaviour mirrors ZCode's git tool: same trigger, same message rules (a Conv
 
 Requires DeepSeek Harness `0.2.0-rc.1` or newer and `git` on the host `PATH`.
 
-The plugin is not published to npm; it ships from GitHub only. Pick one:
+The plugin is not published to npm; it ships from GitHub only. **Take the prebuilt release asset** — it already carries the built artifacts, so nothing runs a build script on your machine:
 
 ```sh
-# 1) prebuilt release asset (recommended: no full-repo download, no local build)
-dsh plugin --profile web add https://github.com/135ty/dsh-git-commit-panel/releases/download/v0.1.0/dsh-git-commit-panel-0.1.0.tgz
+dsh plugin --profile web add https://github.com/135ty/dsh-git-commit-panel/releases/latest/download/dsh-git-commit-panel.tgz
+```
 
-# 2) straight from the GitHub source (downloads the whole repo and builds locally; needs Node.js 24+)
+That URL always resolves to the newest release, so a new version needs no README edit.
+
+You can also install straight from the GitHub source (downloads the whole repo and builds locally; needs Node.js 24+):
+
+```sh
+# unpinned: always the default branch
 dsh plugin --profile web add github:135ty/dsh-git-commit-panel
 
-# 3) pinned to a tag or commit
+# pinned to a tag or commit — prefer this when installing from source
 dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.0
 
-# 4) a local checkout (development: a link dependency, live after a rebuild and a reload)
+# a local checkout (development: a link dependency, live after a rebuild and a reload)
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
 ```
 
@@ -44,7 +49,7 @@ Then restart `dsh web`.
 
 ### A GitHub-source install needs one build approval
 
-Options 2 and 3 install **sources**, and pnpm will not run a dependency's `prepare` script until it is allowed, so the first `add` fails and prints the names that need a decision. Put both into that profile's `pnpm-workspace.yaml` and re-run `add`:
+All three GitHub-source forms above install **sources**, and pnpm will not run a dependency's `prepare` script until it is allowed, so the first `add` fails and prints the names that need a decision. Put both into that profile's `pnpm-workspace.yaml` and re-run `add`:
 
 ```yaml
 allowBuilds:
@@ -52,7 +57,7 @@ allowBuilds:
   esbuild: true                # the esbuild prepare uses needs its platform binary
 ```
 
-That is why option 1 is the recommended one: the tarball already carries a built `lib/`, so nothing runs a build script on the user's machine and the approval is not needed. Pin your version with 2 or 3 (`#v0.1.0` or `#<sha>`) — otherwise a later `push` can change what an installed plugin runs without telling anyone.
+That is why the prebuilt asset is the recommended one: the tarball already carries a built `lib/`, so nothing runs a build script on the user's machine and the approval is not needed. Pin a source install with `#v0.1.0` or `#<sha>` — otherwise a later `push` can change what an installed plugin runs without telling anyone.
 
 ## Development and verification
 

@@ -22,19 +22,24 @@
 
 要求 DeepSeek Harness `0.2.0-rc.1` 及以上，Host 的 `PATH` 中有 `git`。
 
-本插件不发布 npm 包，只从 GitHub 分发，下列方式选一种：
+本插件不发布 npm 包，只从 GitHub 分发。**首选预编译的 Release 包**——它已经带构建好的产物，你机器上一个构建脚本都不用跑：
 
 ```sh
-# 1) 预编译的 Release 包（推荐：不下载整个仓库，也不在本地构建）
-dsh plugin --profile web add https://github.com/135ty/dsh-git-commit-panel/releases/download/v0.1.0/dsh-git-commit-panel-0.1.0.tgz
+dsh plugin --profile web add https://github.com/135ty/dsh-git-commit-panel/releases/latest/download/dsh-git-commit-panel.tgz
+```
 
-# 2) 直接从 GitHub 源安装（下载整个仓库并在本地构建，需要 Node.js 24+）
+这条 URL 永远指向最新版本，发新版不用改 README。
+
+也可以从 GitHub 源装（会下载整个仓库并在本地构建，需要 Node.js 24+）：
+
+```sh
+# 不钉版本：始终取默认分支
 dsh plugin --profile web add github:135ty/dsh-git-commit-panel
 
-# 3) 固定到某个 tag 或 commit
+# 钉到某个 tag 或 commit（建议装源码时用它）
 dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.0
 
-# 4) 本地目录（开发用；link 依赖，重新构建后刷新页面即生效）
+# 本地目录（开发用；link 依赖，重新构建后刷新页面即生效）
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
 ```
 
@@ -44,7 +49,7 @@ dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
 
 ### 从 GitHub 源安装需要一次构建授权
 
-方式②③ 装的是**源码**，pnpm 出于安全不会自动跑依赖的 `prepare` 脚本，所以第一次 `add` 会失败并打印需要授权的包名。把那两个名字写进该 profile 的 `pnpm-workspace.yaml` 再重跑 `add` 即可：
+上面三种 GitHub 源装法装的是**源码**，pnpm 出于安全不会自动跑依赖的 `prepare` 脚本，所以第一次 `add` 会失败并打印需要授权的包名。把那两个名字写进该 profile 的 `pnpm-workspace.yaml` 再重跑 `add` 即可：
 
 ```yaml
 allowBuilds:
@@ -52,7 +57,7 @@ allowBuilds:
   esbuild: true                # prepare 用到的 esbuild 需要装平台二进制
 ```
 
-这就是方式① 推荐的原因：tarball 里已经带构建好的 `lib/`，用户机器上一个构建脚本都不跑，也就不需要这条授权。要钉住版本就直接用②③（`#v0.1.0` 或 `#<sha>`），否则一次 `push` 就可能让已经装好的插件在没有提示的情况下换了内容。
+这就是预编译包推荐的原因：tarball 里已经带构建好的 `lib/`，用户机器上一个构建脚本都不跑，也就不需要这条授权。要钉源码版本就用 `#v0.1.0` 或 `#<sha>`，否则一次 `push` 就可能让已经装好的插件在没有提示的情况下换了内容。
 
 ## 开发与验证
 

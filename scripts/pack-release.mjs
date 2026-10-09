@@ -75,18 +75,30 @@ if (missing.length > 0) {
 
 const tag = `v${manifest.version}`;
 const repo = /github\.com[/:]([^/]+\/[^/#]+?)(?:\.git)?$/i.exec(manifest.repository?.url ?? '')?.[1] ?? null;
+/** Asset name the README's install command resolves to — no version, so `latest/download` keeps working across releases. */
+const stable = manifest.name;
 
 console.log(`\n${artifact.filename} — ${names.size} files, ${(artifact.size / 1024).toFixed(1)} KiB packed\n`);
 if (repo === null) {
     console.log('package.json declares no GitHub repository URL: upload the tarball to a release by hand.');
     process.exit(0);
 }
-console.log(`Publish it as an asset of this repository's own release:
+console.log(`Upload it twice: once under its packed name, once under the version-free
+name the README resolves. Both assets must exist for every release — the
+versioned one for the pinned URL and for the market entry's \`tarball\` field,
+the version-free one so \`latest/download\` still resolves after the next release.
 
   git tag ${tag} && git push origin ${tag}
   gh release create ${tag} ${artifact.filename} --title ${tag} --generate-notes
 
-Then the install target, and the market entry's optional \`tarball\` field, is:
+  cp ${artifact.filename} ${stable}.tgz
+  gh release upload ${tag} ${stable}.tgz
+
+The install command in the READMEs (already published, never needs editing):
+
+  https://github.com/${repo}/releases/latest/download/${stable}.tgz
+
+The pinned target, and the market entry's optional \`tarball\` field:
 
   https://github.com/${repo}/releases/download/${tag}/${artifact.filename}
 `);
