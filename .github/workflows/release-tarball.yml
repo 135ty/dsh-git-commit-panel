@@ -1,0 +1,93 @@
+name: release-tarball
+
+# 第一分支（main）一有 commit 就自动重新打包 tarball；
+# 第二分支（dev）用 workflow_dispatch 手动打包，不发布。
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要打包的 ref（分支/tag/sha，留空 = 触发该次运行的 commit）'
+        required: false
+        default: ''
+      publish:
+        description: '是否同时发布到 GitHub Release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# 同一分支的多次推送串行跑，避免两个任务同时改同一份 Release 资产
+concurrency:
+  group: release-tarball-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build tarball
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # typecheck + build + 产物契约检查，不过不发布
+      - name: Verify
+        run: npm run verify
+
+      - name: Pack release tarball
+        id: pack
+        run: |
+          set -euo pipefail
+          npm run pack:release
+          file=$(ls -1 dsh-git-commit-panel-*.tgz | head -n 1)
+          # 版本无关名：README 的 releases/latest/download/dsh-git-commit-panel.tgz 永远解析到它
+          cp "$file" dsh-git-commit-panel.tgz
+          version=$(node -p "require('./package.json').version")
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          ls -la *.tgz
+
+      # 无论是否发布，运行记录里都留一份产物
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-git-commit-panel-${{ github.sha }}
+          path: |
+            dsh-git-commit-panel-*.tgz
+            dsh-git-commit-panel.tgz
+          retention-days: 90
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'push' || inputs.publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ steps.pack.outputs.version }}
+          FILE: ${{ steps.pack.outputs.file }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # 版本没变、只是又推了新 commit：原地替换资产，保持 latest 指向它
+            gh release upload "$TAG" "$FILE" dsh-git-commit-panel.tgz --clobber
+            gh release edit "$TAG" --latest
+          else
+            # 版本变了：新建版本发布
+            gh release create "$TAG" "$FILE" dsh-git-commit-panel.tgz \
+              --title "$TAG" --generate-notes --latest --target "$GITHUB_SHA"
+          fi
+          gh release view "$TAG" --json url,tagName,assets \
+            --jq '{release: .url, assets: [.assets[].name]}'
