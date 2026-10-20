@@ -20,7 +20,7 @@
 
 ## 安装
 
-要求 DeepSeek Harness `0.2.0-rc.1` 及以上，Host 的 `PATH` 中有 `git`。
+要求 DeepSeek Harness `0.2.1-rc.2` 及以上，Host 的 `PATH` 中有 `git`。插件的 `engines.dsh` 声明的就是这个下限，DSH 会据此做安装兼容性检查。
 
 本插件不发布 npm 包，只从 GitHub 分发。**首选预编译的 Release 包**——它已经带构建好的产物，你机器上一个构建脚本都不用跑：
 
@@ -37,7 +37,7 @@ dsh plugin --profile web add https://github.com/135ty/dsh-git-commit-panel/relea
 dsh plugin --profile web add github:135ty/dsh-git-commit-panel
 
 # 钉到某个 tag 或 commit（建议装源码时用它）
-dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.0
+dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.1
 
 # 本地目录（开发用；link 依赖，重新构建后刷新页面即生效）
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
@@ -57,7 +57,7 @@ allowBuilds:
   esbuild: true                # prepare 用到的 esbuild 需要装平台二进制
 ```
 
-这就是预编译包推荐的原因：tarball 里已经带构建好的 `lib/`，用户机器上一个构建脚本都不跑，也就不需要这条授权。要钉源码版本就用 `#v0.1.0` 或 `#<sha>`，否则一次 `push` 就可能让已经装好的插件在没有提示的情况下换了内容。
+这就是预编译包推荐的原因：tarball 里已经带构建好的 `lib/`，用户机器上一个构建脚本都不跑，也就不需要这条授权。要钉源码版本就用 `#v0.1.1` 或 `#<sha>`，否则一次 `push` 就可能让已经装好的插件在没有提示的情况下换了内容。
 
 ## 开发与验证
 

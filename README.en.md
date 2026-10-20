@@ -20,7 +20,7 @@ The behaviour mirrors ZCode's git tool: same trigger, same message rules (a Conv
 
 ## Install
 
-Requires DeepSeek Harness `0.2.0-rc.1` or newer and `git` on the host `PATH`.
+Requires DeepSeek Harness `0.2.1-rc.2` or newer and `git` on the host `PATH`. That floor is the plugin's `engines.dsh` declaration, which DSH uses for its install-time compatibility check.
 
 The plugin is not published to npm; it ships from GitHub only. **Take the prebuilt release asset** — it already carries the built artifacts, so nothing runs a build script on your machine:
 
@@ -37,7 +37,7 @@ You can also install straight from the GitHub source (downloads the whole repo a
 dsh plugin --profile web add github:135ty/dsh-git-commit-panel
 
 # pinned to a tag or commit — prefer this when installing from source
-dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.0
+dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.1
 
 # a local checkout (development: a link dependency, live after a rebuild and a reload)
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
@@ -57,7 +57,7 @@ allowBuilds:
   esbuild: true                # the esbuild prepare uses needs its platform binary
 ```
 
-That is why the prebuilt asset is the recommended one: the tarball already carries a built `lib/`, so nothing runs a build script on the user's machine and the approval is not needed. Pin a source install with `#v0.1.0` or `#<sha>` — otherwise a later `push` can change what an installed plugin runs without telling anyone.
+That is why the prebuilt asset is the recommended one: the tarball already carries a built `lib/`, so nothing runs a build script on the user's machine and the approval is not needed. Pin a source install with `#v0.1.1` or `#<sha>` — otherwise a later `push` can change what an installed plugin runs without telling anyone.
 
 ## Development and verification
 
