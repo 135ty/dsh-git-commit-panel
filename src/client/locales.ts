@@ -29,7 +29,6 @@ export const en = {
   committing: 'Committing…',
   pushing: 'Pushing…',
   stageAll: 'Stage all changes before committing',
-  stageAllHint: 'Includes untracked files.',
   commitStagedOnly: 'Only already-staged changes will be committed.',
   noUnstaged: 'No unstaged changes in this workspace.',
   noStaged: 'Nothing is staged yet.',
@@ -39,8 +38,6 @@ export const en = {
   commitFailed: 'Commit failed.',
   showFiles: 'Show changed files',
   hideFiles: 'Hide changed files',
-  commits: 'Commit',
-  andPush: 'and push',
   emptyGenerates: 'Leave the message empty and the AI drafts one, then commits.',
   generatedBy: 'Drafted by {model}',
 } as const;
@@ -67,7 +64,6 @@ export const zh: Record<keyof typeof en, string> = {
   committing: '提交中…',
   pushing: '推送中…',
   stageAll: '提交前暂存全部更改',
-  stageAllHint: '包含未跟踪的文件。',
   commitStagedOnly: '只会提交已暂存的更改。',
   noUnstaged: '该工作区没有未暂存的更改。',
   noStaged: '当前没有已暂存的更改。',
@@ -77,8 +73,6 @@ export const zh: Record<keyof typeof en, string> = {
   commitFailed: '提交失败。',
   showFiles: '展开更改文件',
   hideFiles: '收起更改文件',
-  commits: '提交',
-  andPush: '并推送',
   emptyGenerates: '留空则由 AI 起草提交信息并直接提交。',
   generatedBy: '由 {model} 起草',
 };

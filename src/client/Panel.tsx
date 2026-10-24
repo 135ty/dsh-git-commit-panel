@@ -20,7 +20,7 @@ import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/c
 // bundle request.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client';
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots';
-import type { CommitResult, FileChange, GitCommitError, RepoStatus } from '../types.ts';import type { GitCommitApi } from './api.ts';
+import type { FileChange, GitCommitError, RepoStatus } from '../types.ts';import type { GitCommitApi } from './api.ts';
 
 /** Selector hook over the picked workspace's repository status. */
 export type GitCommitStatusHook = SnapshotSelectorHook<RepoStatus | null | undefined>;
@@ -266,7 +266,6 @@ export function Panel(props: PanelProps): ReactElement | null {
   const [showFiles, setShowFiles] = useState(false);
   const [busy, setBusy] = useState<'idle' | 'loading' | 'generating' | 'committing'>('idle');
   const [error, setError] = useState<GitCommitError | null>(null);
-  const [notice, setNotice] = useState('');
 
   // A handled failure is written to the panel; mirror it to the console so a
   // diagnosis does not have to reproduce the click that produced it. Provider
@@ -376,7 +375,6 @@ export function Panel(props: PanelProps): ReactElement | null {
   const generateMessage = useCallback(async (): Promise<{ message: string; model: string } | null> => {
     if (status === null) return null;
     setError(null);
-    setNotice('');
     const result = await git.generate(status.workspace, {
       staged: !stageAll && stagedCount > 0,
       locale: typeof navigator === 'undefined' ? 'en' : navigator.language,
@@ -409,7 +407,6 @@ export function Panel(props: PanelProps): ReactElement | null {
   const onCommit = useCallback(async (push: boolean): Promise<void> => {
     if (status === null) return;
     setError(null);
-    setNotice('');
 
     let outgoing = message;
     if (message.trim() === '') {
@@ -436,7 +433,6 @@ export function Panel(props: PanelProps): ReactElement | null {
       }
       setMessage('');
       setDraftedBy('');
-      setNotice(describeCommit(result.value, t));
       setStatus(null);
       await refresh(true);
     } finally {
@@ -510,7 +506,6 @@ export function Panel(props: PanelProps): ReactElement | null {
           onClick={() => {
             setOpen(false);
             setError(null);
-            setNotice('');
           }}
           title={t('close')}
         >
@@ -587,7 +582,6 @@ export function Panel(props: PanelProps): ReactElement | null {
           onChange={(event) => setStageAll(event.target.checked)}
         />
         <span>{t('stageAll')}</span>
-        <span style={mutedStyle}>{t('stageAllHint')}</span>
       </label>
       {!stageAll && stagedCount === 0 ? <div style={mutedStyle}>{t('noStaged')}</div> : null}
 
@@ -606,7 +600,6 @@ export function Panel(props: PanelProps): ReactElement | null {
           ) : null}
         </div>
       ) : null}
-      {notice !== '' ? <div style={mutedStyle}>{notice}</div> : null}
 
       <footer style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         <HoverButton
@@ -650,11 +643,4 @@ function errorHeading(code: GitCommitError['code']): 'generateFailed' | 'commitF
     default:
       return 'commitFailed';
   }
-}
-
-/** One-line summary of a settled commit. */
-function describeCommit(result: CommitResult, t: PanelProps['t']): string {
-  const head = `${result.commit.slice(0, 8)} ${result.subject}`;
-  if (!result.pushed) return head;
-  return `${head} · ${t('commits')} ${t('andPush')}`;
 }

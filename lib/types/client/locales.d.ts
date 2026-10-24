@@ -27,7 +27,6 @@ export declare const en: {
     readonly committing: "Committing…";
     readonly pushing: "Pushing…";
     readonly stageAll: "Stage all changes before committing";
-    readonly stageAllHint: "Includes untracked files.";
     readonly commitStagedOnly: "Only already-staged changes will be committed.";
     readonly noUnstaged: "No unstaged changes in this workspace.";
     readonly noStaged: "Nothing is staged yet.";
@@ -37,8 +36,6 @@ export declare const en: {
     readonly commitFailed: "Commit failed.";
     readonly showFiles: "Show changed files";
     readonly hideFiles: "Hide changed files";
-    readonly commits: "Commit";
-    readonly andPush: "and push";
     readonly emptyGenerates: "Leave the message empty and the AI drafts one, then commits.";
     readonly generatedBy: "Drafted by {model}";
 };
