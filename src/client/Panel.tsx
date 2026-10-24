@@ -404,8 +404,7 @@ export function Panel(props: PanelProps): ReactElement | null {
   /**
    * Commit (and optionally push) through the host. An empty message box is not
    * an error: the AI drafts the message first, the draft lands in the box, and
-   * that text is what gets committed — the same sequence ZCode's commit dialog
-   * uses.
+   * that text is what gets committed.
    */
   const onCommit = useCallback(async (push: boolean): Promise<void> => {
     if (status === null) return;

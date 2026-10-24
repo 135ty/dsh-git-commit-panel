@@ -4,9 +4,9 @@
  * workspace root — that canonicalization is this module's security boundary,
  * and every route handler funnels through it.
  *
- * The commit-message prompt mirrors the rules ZCode's git tool uses: one
- * Conventional Commit subject line, type and scope in English, subject under
- * 72 characters, no explanation of the reasoning.
+ * The commit-message prompt asks for one Conventional Commit subject line,
+ * type and scope in English, a subject under 72 characters, and no
+ * explanation of the reasoning.
  *
  * @module dsh-git-commit-panel/host/service
  */
@@ -405,9 +405,8 @@ function selectFiles(
 }
 
 /**
- * Build the commit-message prompt. The shape follows ZCode's generator: a
- * hard requirement block, the branch, the language, the changed-file summary,
- * and bounded diff excerpts.
+ * Build the commit-message prompt: a hard requirement block, the branch, the
+ * language, the changed-file summary, and bounded diff excerpts.
  * @param input - branch, locale, files, diffs, optional user hint.
  * @returns the complete prompt text.
  */

@@ -4,7 +4,7 @@ English · [中文](README.md)
 
 A DSH web GUI plugin: when the git repository of the current conversation's directory has unstaged or untracked changes, a small pill floats in the page showing the branch, how many changes are pending and the added/removed line totals (e.g. `⑂ main 6 changed +61 -5`). Clicking it opens the commit card — write the message yourself or let AI draft it, then commit, or commit and push right away.
 
-The behaviour mirrors ZCode's git tool: same trigger, same message rules (a Conventional Commit subject, type and scope in English, subject under 72 characters), same two actions.
+The rules, stated directly: the panel appears only when the current conversation's directory has unstaged or untracked changes; AI drafts are Conventional Commits — the first line is a `type(scope): subject` (scope optional), the type drawn from feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, with the type and scope in English and the subject under 72 characters; a message you write is committed without a format check. There are exactly two actions: commit, and commit and push.
 
 ![The commit card](assets/commit-panel.png)
 

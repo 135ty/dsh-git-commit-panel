@@ -94,9 +94,8 @@ export declare class GitCommitService {
     private complete;
 }
 /**
- * Build the commit-message prompt. The shape follows ZCode's generator: a
- * hard requirement block, the branch, the language, the changed-file summary,
- * and bounded diff excerpts.
+ * Build the commit-message prompt: a hard requirement block, the branch, the
+ * language, the changed-file summary, and bounded diff excerpts.
  * @param input - branch, locale, files, diffs, optional user hint.
  * @returns the complete prompt text.
  */

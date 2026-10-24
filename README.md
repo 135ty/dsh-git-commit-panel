@@ -4,7 +4,7 @@
 
 一个 DSH Web GUI 插件：当前对话所在目录的 git 仓库有未暂存或未跟踪的改动时，页面浮出一枚小胶囊（显示当前分支、待提交数量和增删行数，如 `⑂ main 6 个更改 +61 -5`），点开就是提交卡片——提交信息可以手写，也可以让 AI 起草，然后提交，或者提交后立即推送。
 
-行为对齐 ZCode 的 git 工具：触发条件、提交信息规则（首行是 Conventional Commit，type 与 scope 用英文，主题不超过 72 字符）和两个动作都一致。
+具体规则：面板只在当前对话所在目录出现未暂存或未跟踪改动时浮出；AI 起草的提交信息按 Conventional Commit 生成——首行是 `type(scope): 主题`（scope 可省略），type 取自 feat、fix、docs、style、refactor、perf、test、build、ci、chore、revert，要求 type/scope 用英文、主题少于 72 字符；手写的提交信息不做格式校验。动作只有「提交」和「提交并推送」两个。
 
 ![提交卡片](assets/commit-panel.png)
 
