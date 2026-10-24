@@ -285,7 +285,8 @@ export class GitCommitService {
   }
 
   /** Canonicalize + authorize a workspace path. */
-  private async gated(path: string): Promise<string> {    const gate = await this.options.gate(path);
+  private async gated(path: string): Promise<string> {
+    const gate = await this.options.gate(path);
     if (!gate.ok) throw new ServiceError(gate.error.code, gate.error.message, gate.error.detail);
     return gate.canonical;
   }

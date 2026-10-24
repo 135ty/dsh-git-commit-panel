@@ -368,9 +368,10 @@ export function Panel(props: PanelProps): ReactElement | null {
   }, [refresh]);
 
   /**
-   * Ask the host for a Conventional Commit message, preferring the selected
-   * model. Returns the message and the model that drafted it, or null after
-   * surfacing the failure.
+   * Ask the host for a Conventional Commit message from the deployment's
+   * default model (the client sends no provider/model pair, so the host never
+   * follows the conversation's selected model). Returns the message and the
+   * model that drafted it, or null after surfacing the failure.
    */
   const generateMessage = useCallback(async (): Promise<{ message: string; model: string } | null> => {
     if (status === null) return null;

@@ -1,5 +1,5 @@
 {
   "meta": {
-    "description": "A floating commit panel for uncommitted changes: write or AI-draft the message, then commit or commit-and-push."
+    "description": "A floating commit panel for unstaged changes: write or AI-draft the message, then commit or commit-and-push."
   }
 }
