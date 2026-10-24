@@ -70,6 +70,13 @@ export interface RepoStatus {
   workspace: string;
   /** Repository top level; differs from the workspace when it sits in a subdirectory. */
   root: string;
+  /**
+   * Repository display name: the origin remote's repo name, or the top-level
+   * directory's basename when no remote is configured. Optional because the
+   * browser bundle is re-served on a page load while a changed host half needs
+   * a restart, so a client can meet a status that predates the field.
+   */
+  name?: string | undefined;
   /** Branch name, or a short commit id when HEAD is detached; null for an unborn branch with no commits. */
   branch: string | null;
   detached: boolean;
@@ -276,6 +283,7 @@ export function isRepoStatus(value: unknown): value is RepoStatus {
   if (!(value.branch === null || typeof value.branch === 'string')) return false;
   if (typeof value.detached !== 'boolean') return false;
   if (!(value.upstream === null || typeof value.upstream === 'string')) return false;
+  if (value.name !== undefined && typeof value.name !== 'string') return false;
   if (typeof value.ahead !== 'number' || typeof value.behind !== 'number') return false;
   if (typeof value.hasUnstagedChanges !== 'boolean' || typeof value.hasStagedChanges !== 'boolean') return false;
   if (!Array.isArray(value.files)) return false;

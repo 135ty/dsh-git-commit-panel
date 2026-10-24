@@ -367,6 +367,27 @@ async function readLineCounts(
 }
 
 /**
+ * Derive the repository's display name: the `origin` remote's repo name
+ * (e.g. `dsh-git-commit-panel` for `git@github.com:135ty/dsh-git-commit-panel.git`),
+ * falling back to the repository top-level directory's basename.
+ * @param git - the runner.
+ * @param root - repository top level.
+ * @param signal - cancellation.
+ * @returns the name; never empty.
+ */
+async function readRepoName(git: GitRunner, root: string, signal?: AbortSignal): Promise<string> {
+  const remote = await git.run(['config', '--get', 'remote.origin.url'], root, signal);
+  const url = remote.exitCode === 0 ? remote.stdout.trim() : '';
+  if (url !== '') {
+    const lastSegment = url.replace(/\\/g, '/').split('/').pop() ?? '';
+    const name = lastSegment.replace(/\.git$/, '').trim();
+    if (name !== '') return name;
+  }
+  const basename = root.replace(/\\/g, '/').split('/').pop() ?? '';
+  return basename === '' ? root : basename;
+}
+
+/**
  * Read the complete status of one already-gated workspace directory.
  * @param git - the runner.
  * @param workspace - canonical workspace root.
@@ -393,9 +414,11 @@ export async function readStatus(
   const files = toFileChanges(parsed.entries);
   const summary = summarize(files);
   const lines = await readLineCounts(git, root, files, signal);
+  const name = await readRepoName(git, root, signal);
   return {
     workspace,
     root,
+    name,
     branch: parsed.branch,
     detached: parsed.detached,
     upstream: parsed.upstream,

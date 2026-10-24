@@ -486,6 +486,9 @@ export function Panel(props: PanelProps): ReactElement | null {
       >
       <header style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <strong style={{ flex: 1 }}>{t('title')}</strong>
+        {status.name !== undefined && status.name !== '' ? (
+          <span style={mutedStyle}>{status.name}</span>
+        ) : null}
         <span style={mutedStyle}>{branchLabel}</span>
         {status.upstream !== null && (status.ahead > 0 || status.behind > 0) ? (
           <span style={mutedStyle}>{t('upstreamAheadBehind', { ahead: status.ahead, behind: status.behind })}</span>

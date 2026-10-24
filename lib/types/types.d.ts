@@ -59,6 +59,13 @@ export interface RepoStatus {
     workspace: string;
     /** Repository top level; differs from the workspace when it sits in a subdirectory. */
     root: string;
+    /**
+     * Repository display name: the origin remote's repo name, or the top-level
+     * directory's basename when no remote is configured. Optional because the
+     * browser bundle is re-served on a page load while a changed host half needs
+     * a restart, so a client can meet a status that predates the field.
+     */
+    name?: string | undefined;
     /** Branch name, or a short commit id when HEAD is detached; null for an unborn branch with no commits. */
     branch: string | null;
     detached: boolean;
