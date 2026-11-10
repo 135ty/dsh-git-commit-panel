@@ -16,7 +16,7 @@ import type {} from '@deepseek-ai/dsh-subprocess';
 import type {} from '@deepseek-ai/dsh-llm';
 import type {} from '@deepseek-ai/dsh-agent-default-model';
 import type {} from '@deepseek-ai/dsh-workspace';
-import type { StreamChunk } from '@deepseek-ai/dsh-llm';
+import type { ReasoningEffortId } from '@deepseek-ai/dsh-llm';
 import type {
   CommitRequest,
   CommitResult,
@@ -40,6 +40,19 @@ const MAX_PROMPT_DIFF_CHARS = 12_000;
 const MAX_PROMPT_DIFF_CHARS_PER_FILE = 2_000;
 const MAX_COMMIT_MESSAGE_CHARS = 1_000;
 const MAX_HINT_CHARS = 500;
+
+/**
+ * Output budget for one draft. A Conventional Commit subject plus a short body
+ * fits well inside this, and the headroom keeps a verbose model from stopping
+ * mid-sentence.
+ */
+const MAX_COMPLETION_TOKENS = 1_024;
+
+/**
+ * Attempts per draft. The second attempt only covers a degenerate completion
+ * (a normal stop with no text), which a fresh request can fix.
+ */
+const DRAFT_ATTEMPTS = 2;
 
 /** A Conventional Commit subject; anything else is retried/refused rather than committed blindly. */
 const CONVENTIONAL_COMMIT_RE = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w./@ -]+\))?!?: .{1,120}$/;
@@ -68,6 +81,23 @@ export class ServiceError extends Error {
     if (this.detail !== undefined && this.detail !== '') error.detail = this.detail;
     return error;
   }
+}
+
+/** Assembled reply from one draft call, including why it stopped. */
+interface DraftReply {
+  /** Visible text, trimmed; empty when the model produced none. */
+  text: string;
+  /** Terminal finish kind reported by the runtime, or `none` when it said nothing. */
+  finish: string;
+  /** Reported output tokens, when the route accounts them. */
+  outputTokens: number | null;
+}
+
+/** Render a text-less reply as an operator-readable error detail. */
+function describeEmptyDraft(provider: string, model: string, reply: DraftReply | null): string {
+  const finish = reply?.finish ?? 'none';
+  const tokens = reply?.outputTokens === null || reply?.outputTokens === undefined ? 'unknown' : reply.outputTokens;
+  return `${provider}/${model} returned no text (finish=${finish}, outputTokens=${tokens})`;
 }
 
 /** Remote-neutral facts the service needs from the host composition. */
@@ -333,9 +363,19 @@ export class GitCommitService {
   }
 
   /**
-   * One non-streaming model call assembled from the streaming API. The call is
-   * bounded by its own deadline and by the caller's lifetime, so a browser that
-   * navigated away does not leave a provider request running.
+   * One non-streaming model call assembled from the streaming API.
+   *
+   * Two facts of the DeepSeek adapter shape this call. When the caller omits
+   * `reasoningEffort` and the provider sets no default, the adapter turns
+   * thinking on at `high`, and thinking tokens are billed against `maxTokens`;
+   * a diff worth thinking about can then spend the whole budget before the
+   * first visible token, which arrives as an ordinary `max-tokens` stop with no
+   * text at all. A commit subject needs no chain of thought, so the call asks
+   * for the least effort the resolved route offers, and treats a budget that
+   * still ran out as its own failure instead of an empty reply.
+   *
+   * The call is bounded by its own deadline and by the caller's lifetime, so a
+   * browser that navigated away does not leave a provider request running.
    */
   private async complete(
     provider: string,
@@ -351,31 +391,31 @@ export class GitCommitService {
     );
     const onAbort = (): void => controller.abort(signal?.reason);
     signal?.addEventListener('abort', onAbort, { once: true });
-    let text = '';
     try {
-      const stream = this.ctx.llm.stream({
-        provider,
-        model,
-        system: 'You write concise Conventional Commit messages. You answer with the commit message only.',
-        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
-        temperature: 0.2,
-        maxTokens: 400,
-        purpose: 'session-title',
-        signal: controller.signal,
-      });
-      for await (const chunk of stream as AsyncIterable<StreamChunk>) {
-        if (chunk.type === 'text-delta') text += chunk.text;
-        if (chunk.type === 'finish') {
-          if (chunk.reason.kind === 'error') {
-            throw new ServiceError('model-failed', 'The model call failed.', chunk.reason.failure.message);
-          }
-          if (chunk.reason.kind === 'aborted') {
-            throw new ServiceError('model-failed', 'The model call was aborted.', chunk.reason.failure.message);
-          }
-        }
+      const reasoningEffort = await this.quietReasoningEffort(provider, model, controller.signal);
+      let reply: DraftReply | null = null;
+      for (let attempt = 0; attempt < DRAFT_ATTEMPTS; attempt += 1) {
+        reply = await this.streamDraft(provider, model, prompt, reasoningEffort, controller.signal);
+        if (reply.text !== '') return reply.text;
+        // An empty reply from a depleted budget is not fixed by asking again.
+        if (reply.finish === 'max-tokens') break;
       }
+      throw new ServiceError(
+        'model-failed',
+        reply?.finish === 'max-tokens'
+          ? 'The model used its whole output budget before writing a commit message.'
+          : 'The model returned no text.',
+        describeEmptyDraft(provider, model, reply),
+      );
     } catch (error) {
-      if (error instanceof ServiceError) throw error;
+      if (error instanceof ServiceError) {
+        // A caller that navigated away is a cancellation, not a failure worth a
+        // host log line.
+        if (error.code === 'model-failed' && signal?.aborted !== true) {
+          this.reportDraftFailure(provider, model, error);
+        }
+        throw error;
+      }
       throw new ServiceError(
         'model-failed',
         'The model request failed.',
@@ -385,10 +425,90 @@ export class GitCommitService {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
     }
-    if (text.trim() === '') {
-      throw new ServiceError('model-failed', 'The model returned no text.');
+  }
+
+  /**
+   * The lowest reasoning effort the exact route offers, so the draft does not
+   * pay for hidden thinking. Routes that declare no reasoning levels leave the
+   * option unset and keep the provider's own default.
+   */
+  private async quietReasoningEffort(
+    provider: string,
+    model: string,
+    signal: AbortSignal,
+  ): Promise<ReasoningEffortId | undefined> {
+    try {
+      const resolved = await this.ctx.llm.resolveModelInfo(provider, model, signal);
+      return resolved.reasoning?.efforts.find((effort) => String(effort.id) === 'off')?.id;
+    } catch {
+      // Model metadata is advisory; an unresolvable route still gets the call.
+      return undefined;
     }
-    return text.trim();
+  }
+
+  /** One streamed call assembled into its text and terminal facts. */
+  private async streamDraft(
+    provider: string,
+    model: string,
+    prompt: string,
+    reasoningEffort: ReasoningEffortId | undefined,
+    signal: AbortSignal,
+  ): Promise<DraftReply> {
+    let text = '';
+    const blocks: string[] = [];
+    let finish = 'none';
+    let outputTokens: number | null = null;
+    const stream = this.ctx.llm.stream({
+      provider,
+      model,
+      system: 'You write concise Conventional Commit messages. You answer with the commit message only.',
+      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
+      temperature: 0.2,
+      maxTokens: MAX_COMPLETION_TOKENS,
+      ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+      signal,
+    });
+    for await (const chunk of stream) {
+      switch (chunk.type) {
+        case 'text-delta':
+          text += chunk.text;
+          break;
+        case 'block-end':
+          // A route that only streams assembled blocks still yields its text.
+          if (chunk.block.type === 'text') blocks.push(chunk.block.text);
+          break;
+        case 'usage':
+          outputTokens = chunk.usage.outputTokens;
+          break;
+        case 'finish':
+          finish = chunk.reason.kind;
+          if (chunk.reason.kind === 'error') {
+            // `EMPTY_RESPONSE` is the runtime's canonical code for a provider
+            // that completed with nothing at all; repeating it is safe, so it
+            // joins the "no text" retry instead of failing the draft outright.
+            if (chunk.reason.failure.code === 'EMPTY_RESPONSE') {
+              finish = 'empty-response';
+              break;
+            }
+            throw new ServiceError('model-failed', 'The model call failed.', chunk.reason.failure.message);
+          }
+          if (chunk.reason.kind === 'aborted') {
+            throw new ServiceError('model-failed', 'The model call was aborted.', chunk.reason.failure.message);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    return { text: (text !== '' ? text : blocks.join('')).trim(), finish, outputTokens };
+  }
+
+  /** Mirror one failed draft to the host log the panel's console cannot reach. */
+  private reportDraftFailure(provider: string, model: string, error: ServiceError): void {
+    const detail = error.detail === undefined || error.detail === '' ? '' : ` — ${error.detail}`;
+    this.ctx.logger.warn(
+      `dsh-git-commit-panel: ${provider}/${model} draft failed: ${error.message}${detail}`,
+    );
   }
 }
 

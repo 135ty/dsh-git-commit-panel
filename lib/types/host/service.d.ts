@@ -87,11 +87,31 @@ export declare class GitCommitService {
     /** Read one diff per selected file, bounded per file and in total. */
     private collectDiffs;
     /**
-     * One non-streaming model call assembled from the streaming API. The call is
-     * bounded by its own deadline and by the caller's lifetime, so a browser that
-     * navigated away does not leave a provider request running.
+     * One non-streaming model call assembled from the streaming API.
+     *
+     * Two facts of the DeepSeek adapter shape this call. When the caller omits
+     * `reasoningEffort` and the provider sets no default, the adapter turns
+     * thinking on at `high`, and thinking tokens are billed against `maxTokens`;
+     * a diff worth thinking about can then spend the whole budget before the
+     * first visible token, which arrives as an ordinary `max-tokens` stop with no
+     * text at all. A commit subject needs no chain of thought, so the call asks
+     * for the least effort the resolved route offers, and treats a budget that
+     * still ran out as its own failure instead of an empty reply.
+     *
+     * The call is bounded by its own deadline and by the caller's lifetime, so a
+     * browser that navigated away does not leave a provider request running.
      */
     private complete;
+    /**
+     * The lowest reasoning effort the exact route offers, so the draft does not
+     * pay for hidden thinking. Routes that declare no reasoning levels leave the
+     * option unset and keep the provider's own default.
+     */
+    private quietReasoningEffort;
+    /** One streamed call assembled into its text and terminal facts. */
+    private streamDraft;
+    /** Mirror one failed draft to the host log the panel's console cannot reach. */
+    private reportDraftFailure;
 }
 /**
  * Build the commit-message prompt: a hard requirement block, the branch, the
