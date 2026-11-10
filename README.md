@@ -37,7 +37,7 @@ dsh plugin --profile web add https://github.com/135ty/dsh-git-commit-panel/relea
 dsh plugin --profile web add github:135ty/dsh-git-commit-panel
 
 # 钉到某个 tag 或 commit（建议装源码时用它）
-dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.1
+dsh plugin --profile web add github:135ty/dsh-git-commit-panel#v0.1.2
 
 # 本地目录（开发用；link 依赖，重新构建后刷新页面即生效）
 dsh plugin --profile web add E:/path/to/dsh-git-commit-panel
@@ -57,7 +57,7 @@ allowBuilds:
   esbuild: true                # prepare 用到的 esbuild 需要装平台二进制
 ```
 
-这就是预编译包推荐的原因：tarball 里已经带构建好的 `lib/`，用户机器上一个构建脚本都不跑，也就不需要这条授权。要钉源码版本就用 `#v0.1.1` 或 `#<sha>`，否则一次 `push` 就可能让已经装好的插件在没有提示的情况下换了内容。
+这就是预编译包推荐的原因：tarball 里已经带构建好的 `lib/`，用户机器上一个构建脚本都不跑，也就不需要这条授权。要钉源码版本就用 `#v0.1.2` 或 `#<sha>`，否则一次 `push` 就可能让已经装好的插件在没有提示的情况下换了内容。
 
 ## 开发与验证
 

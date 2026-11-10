@@ -15,9 +15,9 @@ import assert from 'node:assert/strict';
 import { parseReport } from './lib/npm-pack-report.mjs';
 
 const ENTRY = {
-    id: 'dsh-git-commit-panel@0.1.1',
+    id: 'dsh-git-commit-panel@0.1.2',
     name: 'dsh-git-commit-panel',
-    filename: 'dsh-git-commit-panel-0.1.1.tgz',
+    filename: 'dsh-git-commit-panel-0.1.2.tgz',
     files: [
         { path: 'package.json' },
         { path: 'cordis.patch.yml' },
@@ -34,7 +34,7 @@ const BUILD_OUTPUT = [
     '[build] wrote lib/client.js',
     '[build] done',
     '',
-    '> dsh-git-commit-panel@0.1.1 prepare',
+    '> dsh-git-commit-panel@0.1.2 prepare',
     '> npm run build',
     '',
 ].join('\n');

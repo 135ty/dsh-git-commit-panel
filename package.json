@@ -1,6 +1,6 @@
 {
   "name": "dsh-git-commit-panel",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DSH web GUI plugin: a floating commit panel that appears when a workspace git repository has unstaged changes, with a hand-written or AI-generated commit message and commit / commit-and-push actions.",
   "keywords": [
     "dsh",
