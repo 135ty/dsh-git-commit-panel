@@ -181,8 +181,32 @@ export class GitCommitService {
       hint: request.hint,
     });
 
-    const message = await this.complete(provider, model, prompt, signal);
-    const validated = validateGeneratedCommitMessage(message);
+    // A reply that is text but not a usable subject is retried once with the
+    // rejected draft quoted back, so a chatty model gets a chance to correct
+    // itself before the panel reports failure.
+    const attempts: string[] = [prompt];
+    let message = '';
+    let validated: string | null = null;
+    for (let attempt = 0; attempt < DRAFT_ATTEMPTS && validated === null; attempt += 1) {
+      message = await this.complete(provider, model, attempts[attempt] ?? prompt, signal);
+      validated = validateGeneratedCommitMessage(message);
+      if (validated === null && signal?.aborted !== true) {
+        this.reportDraftFailure(
+          provider,
+          model,
+          new ServiceError(
+            'model-failed',
+            'The model did not return a usable Conventional Commit message.',
+            tail(message, 200),
+          ),
+        );
+        if (attempt === 0) {
+          attempts.push(
+            `${prompt}\n\nYour previous reply was not a usable Conventional Commit subject:\n${tail(message, 300)}\nReply again with the commit message text only: one Conventional Commit subject line, optionally followed by a short body.`,
+          );
+        }
+      }
+    }
     if (validated === null) {
       throw new ServiceError(
         'model-failed',
@@ -589,20 +613,46 @@ export function buildCommitMessagePrompt(input: {
 /**
  * Strip model decorations, cap the length, and require a Conventional Commit
  * subject.
+ *
+ * A first line that is not a subject does not discard the reply while a later
+ * line is a valid subject — chatty models routinely open with prose ("Here is
+ * the commit message:") — so the subject is searched across all lines and the
+ * message is rebuilt from it. Fullwidth colons and markdown bullets are
+ * normalized first because Chinese-locale drafts often carry them.
  * @param raw - the model's raw reply.
  * @returns the usable message, or null when the reply is unusable.
  */
 export function validateGeneratedCommitMessage(raw: string): string | null {
   const message = stripDecorations(raw).trim().slice(0, MAX_COMMIT_MESSAGE_CHARS).trim();
   if (message === '') return null;
-  const subject = message.split(/\r?\n/, 1)[0]?.trim() ?? '';
-  return CONVENTIONAL_COMMIT_RE.test(subject) ? message : null;
+  const lines = message.split(/\r?\n/);
+  let subjectIndex = -1;
+  let subject = '';
+  for (let index = 0; index < lines.length; index += 1) {
+    // Candidate subject: markdown bullet/quote decorations, fullwidth colons,
+    // and a missing space after the colon are normalized before testing.
+    const candidate = (lines[index] ?? '')
+      .trim()
+      .replace(/^[>*-]+\s*/, '')
+      .replace(/：/, ':')
+      .replace(/^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\([\w./@ -]+\))?!?):(?=\S)/, '$1: ');
+    if (CONVENTIONAL_COMMIT_RE.test(candidate)) {
+      subjectIndex = index;
+      subject = candidate;
+      break;
+    }
+  }
+  if (subjectIndex < 0) return null;
+  const body = lines.slice(subjectIndex + 1).map((line) => line.replace(/\s+$/, '')).join('\n').trim();
+  return body === '' ? subject : `${subject}\n\n${body}`;
 }
 
 /** Remove fences, a leading label, and wrapping quotes from a model reply. */
 export function stripDecorations(raw: string): string {
   const trimmed = raw.trim();
-  const fenced = /^```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```$/.exec(trimmed);
+  // A language tag is only recognized when it ends its line, so a single-line
+  // fence whose subject starts with a word (`` ```feat: ... ``) keeps the word.
+  const fenced = /^```(?:[a-zA-Z0-9_-]+\r?\n)?\s*([\s\S]*?)\s*```$/.exec(trimmed);
   const withoutFence = (fenced?.[1] ?? trimmed).trim();
   const commitTag = /<commit>([\s\S]*?)<\/commit>/.exec(withoutFence);
   const withoutTag = (commitTag?.[1] ?? withoutFence).trim();

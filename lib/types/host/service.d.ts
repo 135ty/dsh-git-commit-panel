@@ -132,6 +132,12 @@ export declare function buildCommitMessagePrompt(input: {
 /**
  * Strip model decorations, cap the length, and require a Conventional Commit
  * subject.
+ *
+ * A first line that is not a subject does not discard the reply while a later
+ * line is a valid subject — chatty models routinely open with prose ("Here is
+ * the commit message:") — so the subject is searched across all lines and the
+ * message is rebuilt from it. Fullwidth colons and markdown bullets are
+ * normalized first because Chinese-locale drafts often carry them.
  * @param raw - the model's raw reply.
  * @returns the usable message, or null when the reply is unusable.
  */
